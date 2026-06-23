@@ -85,8 +85,8 @@ Long-lived project artifacts belong in the GitHub Wiki. The local Wiki worktree 
 
 ## Language
 
-- Agent-facing rules and skills use English.
-- Commit messages use English.
+- Agent-facing rules and skills use Korean.
+- Commit messages use Korean.
 - Human-facing issues, pull requests, review comments, and Wiki documentation use the repository team's primary communication language.
 
 ## Completion

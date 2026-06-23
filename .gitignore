@@ -1,3 +1,12 @@
 .agents/
 .idea/
 _workspace/
+
+.gradle/
+build/
+out/
+
+*.iml
+
+.env
+application-local.yml
