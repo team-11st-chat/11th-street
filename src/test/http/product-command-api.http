@@ -1,0 +1,45 @@
+@host = http://localhost:8080
+@productId = 1
+
+### 상품 등록 성공
+POST {{host}}/api/v1/products
+Content-Type: application/json
+
+{
+  "name": "무선 이어폰",
+  "categoryId": 11,
+  "price": 89000,
+  "stockQuantity": 500
+}
+
+### 상품 수정 성공
+PATCH {{host}}/api/v1/products/{{productId}}
+Content-Type: application/json
+
+{
+  "name": "무선 이어폰 Pro",
+  "price": 99000,
+  "stockQuantity": 300,
+  "saleStatus": "ON_SALE"
+}
+
+### 상품 등록 실패 - 재고 수량 누락
+POST {{host}}/api/v1/products
+Content-Type: application/json
+
+{
+  "name": "무선 이어폰",
+  "categoryId": 11,
+  "price": 89000
+}
+
+### 상품 등록 실패 - 잘못된 가격과 재고 수량
+POST {{host}}/api/v1/products
+Content-Type: application/json
+
+{
+  "name": "무선 이어폰",
+  "categoryId": 11,
+  "price": 0,
+  "stockQuantity": -1
+}
