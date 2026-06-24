@@ -16,6 +16,7 @@ public enum ProductErrorCode implements ErrorCode {
     INVALID_PRICE(HttpStatus.BAD_REQUEST, "상품 가격은 0보다 커야 합니다."),
     INVALID_STOCK_QUANTITY(HttpStatus.BAD_REQUEST, "재고 수량은 0 이상이어야 합니다."),
     INVALID_SALE_STATUS(HttpStatus.BAD_REQUEST, "판매 상태와 재고 수량이 올바르지 않습니다."),
+    INVALID_PAGE_REQUEST(HttpStatus.BAD_REQUEST, "페이징 파라미터가 올바르지 않습니다."),
     PRODUCT_OWNER_MISMATCH(HttpStatus.FORBIDDEN, "해당 판매자의 상품이 아닙니다.");
 
     private final HttpStatus httpStatus;
