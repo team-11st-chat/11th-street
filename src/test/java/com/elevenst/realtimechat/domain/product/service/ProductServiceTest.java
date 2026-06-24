@@ -3,6 +3,8 @@ package com.elevenst.realtimechat.domain.product.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -15,13 +17,18 @@ import com.elevenst.realtimechat.domain.product.entity.SaleStatus;
 import com.elevenst.realtimechat.domain.product.exception.ProductException;
 import com.elevenst.realtimechat.domain.product.repository.CategoryRepository;
 import com.elevenst.realtimechat.domain.product.repository.ProductRepository;
+import com.elevenst.realtimechat.domain.search.service.SearchKeywordRecorder;
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
 @ExtendWith(MockitoExtension.class)
 class ProductServiceTest {
@@ -32,11 +39,14 @@ class ProductServiceTest {
     @Mock
     private CategoryRepository categoryRepository;
 
+    @Mock
+    private SearchKeywordRecorder searchKeywordRecorder;
+
     private ProductService productService;
 
     @BeforeEach
     void setUp() {
-        productService = new ProductService(productRepository, categoryRepository);
+        productService = new ProductService(productRepository, categoryRepository, searchKeywordRecorder);
     }
 
     @Test
@@ -131,5 +141,41 @@ class ProductServiceTest {
                 1001L,
                 new ProductUpdateRequest("   ", null, null, null, null)
         )).isInstanceOf(ProductException.class);
+    }
+
+    @Test
+    void searchProducts_returnsPagedProducts_whenInputsAreValid() {
+        Category category = Category.createChild(Category.createRoot("디지털·가전", 1), "이어폰", 1);
+        Product product = Product.create(1L, category, "무선 이어폰", new BigDecimal("89000"), 500);
+        Page<Product> productPage = new PageImpl<>(List.of(product), PageRequest.of(0, 10), 1);
+
+        when(productRepository.searchProducts(
+                eq("이어폰"), eq(11L), eq(SaleStatus.SUSPENDED), eq(SaleStatus.SOLD_OUT), any(PageRequest.class)
+        )).thenReturn(productPage);
+
+        var response = productService.searchProducts("  이어폰  ", 11L, 0, 10, "guest_123");
+
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().get(0).name()).isEqualTo("무선 이어폰");
+        verify(searchKeywordRecorder).record("이어폰", "guest_123");
+    }
+
+    @Test
+    void searchProducts_throwsException_whenPageIsInvalid() {
+        assertThatThrownBy(() -> productService.searchProducts("이어폰", 11L, -1, 10, "guest_123"))
+                .isInstanceOf(ProductException.class)
+                .hasMessage("페이징 파라미터가 올바르지 않습니다.");
+    }
+
+    @Test
+    void searchProducts_doesNotRecordKeyword_whenKeywordIsBlank() {
+        Page<Product> emptyPage = new PageImpl<>(List.of());
+        when(productRepository.searchProducts(
+                isNull(), eq(11L), eq(SaleStatus.SUSPENDED), eq(SaleStatus.SOLD_OUT), any(PageRequest.class)
+        )).thenReturn(emptyPage);
+
+        productService.searchProducts("   ", 11L, 0, 10, "guest_123");
+
+        verify(searchKeywordRecorder, org.mockito.Mockito.never()).record(any(), any());
     }
 }

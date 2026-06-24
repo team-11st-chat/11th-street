@@ -1,0 +1,20 @@
+@host = http://localhost:8080
+
+### 상품 검색 성공 (키워드 및 카테고리 지정)
+GET {{host}}/api/v1/products?keyword=이어폰&categoryId=11&page=0&size=20
+Request-Guest-ID: guest_123
+
+### 상품 검색 성공 (키워드만 지정)
+GET {{host}}/api/v1/products?keyword=이어폰&page=0&size=20
+Request-Guest-ID: guest_123
+
+### 상품 검색 성공 (카테고리만 지정)
+GET {{host}}/api/v1/products?categoryId=11&page=0&size=20
+Request-Guest-ID: guest_123
+
+### 상품 검색 성공 (조건 없음 - 전체 조회)
+GET {{host}}/api/v1/products?page=0&size=20
+Request-Guest-ID: guest_123
+
+### 상품 상세 조회 성공
+GET {{host}}/api/v1/products/1
