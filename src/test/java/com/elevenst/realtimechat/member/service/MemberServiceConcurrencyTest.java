@@ -18,8 +18,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest
+@ActiveProfiles("test")
 class MemberServiceConcurrencyTest {
 
     private static final Logger log = LoggerFactory.getLogger(MemberServiceConcurrencyTest.class);
