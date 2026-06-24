@@ -1,0 +1,16 @@
+spring:
+  datasource:
+    url: ${MYSQL_URL:none}
+    username: ${MYSQL_USER:none}
+    password: ${MYSQL_PASSWORD:none}
+  data:
+    redis:
+      host: ${REDIS_HOST:none}
+      port: ${REDIS_PORT:none}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+jwt:
+  refresh-cookie-secure: true
