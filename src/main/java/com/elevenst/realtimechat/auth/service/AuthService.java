@@ -4,7 +4,7 @@ import com.elevenst.realtimechat.auth.dto.AuthTokens;
 import com.elevenst.realtimechat.auth.dto.LoginRequest;
 import com.elevenst.realtimechat.auth.exception.AuthErrorCode;
 import com.elevenst.realtimechat.global.exception.ServiceException;
-import com.elevenst.realtimechat.global.security.TokenProvider;
+import com.elevenst.realtimechat.global.security.JwtTokenProvider;
 import com.elevenst.realtimechat.member.entity.Member;
 import com.elevenst.realtimechat.member.repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +18,7 @@ public class AuthService {
 
     private final MemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
-    private final TokenProvider tokenProvider;
+    private final JwtTokenProvider jwtTokenProvider;
 
     @Transactional(readOnly = true)
     public AuthTokens login(LoginRequest request) {
@@ -27,8 +27,8 @@ public class AuthService {
         if (!member.isActive() || !passwordEncoder.matches(request.password(), member.getPasswordHash())) {
             throw new ServiceException(AuthErrorCode.INVALID_CREDENTIALS);
         }
-        String accessToken = tokenProvider.createAccessToken(member.getId(), member.getRole());
-        String refreshToken = tokenProvider.createRefreshToken(member.getId());
-        return new AuthTokens(accessToken, refreshToken, tokenProvider.getAccessTokenValiditySeconds());
+        String accessToken = jwtTokenProvider.createAccessToken(member.getId(), member.getRole());
+        String refreshToken = jwtTokenProvider.createRefreshToken(member.getId());
+        return new AuthTokens(accessToken, refreshToken, jwtTokenProvider.getAccessTokenValiditySeconds());
     }
 }

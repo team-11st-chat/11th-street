@@ -6,7 +6,7 @@ import com.elevenst.realtimechat.auth.dto.LoginResponse;
 import com.elevenst.realtimechat.auth.service.AuthService;
 import com.elevenst.realtimechat.global.response.ApiResponse;
 import com.elevenst.realtimechat.global.security.JwtProperties;
-import com.elevenst.realtimechat.global.security.TokenProvider;
+import com.elevenst.realtimechat.global.security.JwtTokenProvider;
 import jakarta.validation.Valid;
 import java.time.Duration;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +26,7 @@ public class AuthController {
     static final String REFRESH_TOKEN_COOKIE = "refreshToken";
 
     private final AuthService authService;
-    private final TokenProvider tokenProvider;
+    private final JwtTokenProvider jwtTokenProvider;
     private final JwtProperties jwtProperties;
 
     @PostMapping("/login")
@@ -44,7 +44,7 @@ public class AuthController {
                 .secure(jwtProperties.refreshCookieSecure())
                 .sameSite("Lax")
                 .path("/")
-                .maxAge(Duration.ofSeconds(tokenProvider.getRefreshTokenValiditySeconds()))
+                .maxAge(Duration.ofSeconds(jwtTokenProvider.getRefreshTokenValiditySeconds()))
                 .build();
     }
 }

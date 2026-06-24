@@ -3,8 +3,8 @@ package com.elevenst.realtimechat.security;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.elevenst.realtimechat.auth.dto.LoginRequest;
-import com.elevenst.realtimechat.global.security.FakeTokenProvider;
 import com.elevenst.realtimechat.global.security.JwtProperties;
+import com.elevenst.realtimechat.global.security.JwtTokenProvider;
 import com.elevenst.realtimechat.member.dto.MemberCreateRequest;
 import com.elevenst.realtimechat.member.entity.Member;
 import com.elevenst.realtimechat.member.entity.MemberRole;
@@ -47,7 +47,8 @@ class SensitiveDataLeakTest {
     @Test
     void 발급된_토큰에_비밀번호_원문이_포함되지_않는다() {
         // given
-        FakeTokenProvider provider = new FakeTokenProvider(new JwtProperties("unused-secret", 3600, 1209600, false));
+        JwtTokenProvider provider = new JwtTokenProvider(
+                new JwtProperties("test-secret-key-that-is-long-enough-for-hs256-0123456789", 3600, 1209600, false));
 
         // when
         String accessToken = provider.createAccessToken(1L, MemberRole.BUYER);
