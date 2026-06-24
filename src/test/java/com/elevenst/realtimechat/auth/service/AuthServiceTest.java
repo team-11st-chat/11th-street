@@ -8,8 +8,9 @@ import com.elevenst.realtimechat.auth.dto.AuthTokens;
 import com.elevenst.realtimechat.auth.dto.LoginRequest;
 import com.elevenst.realtimechat.auth.exception.AuthErrorCode;
 import com.elevenst.realtimechat.global.exception.ServiceException;
+import com.elevenst.realtimechat.global.security.FakeTokenProvider;
 import com.elevenst.realtimechat.global.security.JwtProperties;
-import com.elevenst.realtimechat.global.security.JwtTokenProvider;
+import com.elevenst.realtimechat.global.security.TokenProvider;
 import com.elevenst.realtimechat.member.entity.Member;
 import com.elevenst.realtimechat.member.entity.MemberStatus;
 import com.elevenst.realtimechat.member.repository.MemberRepository;
@@ -33,7 +34,7 @@ class AuthServiceTest {
     void setUp() {
         memberRepository = Mockito.mock(MemberRepository.class);
         passwordEncoder = new BCryptPasswordEncoder();
-        JwtTokenProvider tokenProvider = new JwtTokenProvider(new JwtProperties(SECRET, 3600, 1209600, false));
+        TokenProvider tokenProvider = new FakeTokenProvider(new JwtProperties(SECRET, 3600, 1209600, false));
         authService = new AuthService(memberRepository, passwordEncoder, tokenProvider);
     }
 

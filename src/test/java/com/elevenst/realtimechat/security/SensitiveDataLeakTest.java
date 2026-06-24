@@ -3,13 +3,11 @@ package com.elevenst.realtimechat.security;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.elevenst.realtimechat.auth.dto.LoginRequest;
+import com.elevenst.realtimechat.global.security.FakeTokenProvider;
 import com.elevenst.realtimechat.global.security.JwtProperties;
-import com.elevenst.realtimechat.global.security.JwtTokenProvider;
 import com.elevenst.realtimechat.member.dto.MemberCreateRequest;
 import com.elevenst.realtimechat.member.entity.Member;
 import com.elevenst.realtimechat.member.entity.MemberRole;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
@@ -47,29 +45,16 @@ class SensitiveDataLeakTest {
     }
 
     @Test
-    void 발급된_토큰_본문에_비밀번호_원문이_포함되지_않는다() {
+    void 발급된_토큰에_비밀번호_원문이_포함되지_않는다() {
         // given
-        JwtTokenProvider provider = new JwtTokenProvider(
-                new JwtProperties("test-secret-key-that-is-long-enough-for-hs256-0123456789", 3600, 1209600, false));
+        FakeTokenProvider provider = new FakeTokenProvider(new JwtProperties("unused-secret", 3600, 1209600, false));
 
         // when
         String accessToken = provider.createAccessToken(1L, MemberRole.BUYER);
         String refreshToken = provider.createRefreshToken(1L);
 
         // then
-        assertThat(decodeAllSegments(accessToken)).doesNotContain(RAW_PASSWORD);
-        assertThat(decodeAllSegments(refreshToken)).doesNotContain(RAW_PASSWORD);
-    }
-
-    private static String decodeAllSegments(String token) {
-        StringBuilder sb = new StringBuilder();
-        for (String part : token.split("\\.")) {
-            try {
-                sb.append(new String(Base64.getUrlDecoder().decode(part), StandardCharsets.UTF_8));
-            } catch (IllegalArgumentException ignored) {
-                sb.append(part); // 서명 세그먼트는 base64url 이 아닐 수 있으므로 원문 그대로 비교
-            }
-        }
-        return sb.toString();
+        assertThat(accessToken).doesNotContain(RAW_PASSWORD);
+        assertThat(refreshToken).doesNotContain(RAW_PASSWORD);
     }
 }
