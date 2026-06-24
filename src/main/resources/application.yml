@@ -3,24 +3,11 @@ spring:
     active: local
   application:
     name: 11th-street
-  datasource:
-    url: ${MYSQL_URL}
-    username: ${MYSQL_USER}
-    password: ${MYSQL_PASSWORD}
-  data:
-    redis:
-      host: ${REDIS_HOST}
-      port: ${REDIS_PORT}
-  jpa:
-    hibernate:
-      ddl-auto: validate
-    open-in-view: false
 
 server:
   shutdown: graceful
 
 jwt:
-  secret: ${JWT_SECRET:dev-local-secret-change-me-please-32bytes-minimum-0123456789}
-  access-token-validity-seconds: 3600
-  refresh-token-validity-seconds: 1209600
-  refresh-cookie-secure: ${JWT_REFRESH_COOKIE_SECURE:true}
+  secret: ${JWT_SECRET}
+  access-token-validity-seconds: ${JWT_ACCESS_TOKEN_VALIDITY_SECONDS}
+  refresh-token-validity-seconds: ${JWT_REFRESH_TOKEN_VALIDITY_SECONDS}
