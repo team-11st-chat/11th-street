@@ -128,4 +128,16 @@ class ProductControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("상품을 찾을 수 없습니다."));
     }
+
+    @Test
+    void updateProduct_rejectsBlankName() throws Exception {
+        mockMvc.perform(patch("/api/v1/products/{productId}", 1001L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "   "
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
 }

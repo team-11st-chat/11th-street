@@ -118,4 +118,18 @@ class ProductServiceTest {
         )).isInstanceOf(ProductException.class)
                 .hasMessage("판매 상태와 재고 수량이 올바르지 않습니다.");
     }
+
+    @Test
+    void updateProduct_rejectsBlankName() {
+        Category category = Category.createChild(Category.createRoot("Electronics", 1), "Audio", 1);
+        Product product = Product.create(1L, category, "Wireless Earbuds", new BigDecimal("89000"), 500);
+
+        when(productRepository.findById(1001L)).thenReturn(Optional.of(product));
+
+        assertThatThrownBy(() -> productService.updateProduct(
+                1L,
+                1001L,
+                new ProductUpdateRequest("   ", null, null, null, null)
+        )).isInstanceOf(ProductException.class);
+    }
 }
