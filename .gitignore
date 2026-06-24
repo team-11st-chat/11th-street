@@ -1,6 +1,7 @@
 .agents/
 .idea/
 _workspace/
+.claude/
 
 .gradle/
 build/
@@ -8,5 +9,8 @@ out/
 
 *.iml
 
+AGENTS.md
+
 .env
-application-local.yml
+
+/wiki/
