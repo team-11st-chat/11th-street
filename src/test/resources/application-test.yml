@@ -1,20 +1,30 @@
 spring:
   datasource:
-    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1
-    driver-class-name: org.h2.Driver
-    username: sa
-    password: ""
+    url: ${DB_URL:jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1}
+    driver-class-name: ${DB_DRIVER_CLASS_NAME:org.h2.Driver}
+    username: ${DB_USERNAME:sa}
+    password: ${DB_PASSWORD:}
+  flyway:
+    enabled: ${FLYWAY_ENABLED:false}
+    locations: ${FLYWAY_LOCATIONS:classpath:db/migration}
+    validate-on-migrate: ${FLYWAY_VALIDATE_ON_MIGRATE:false}
   jpa:
     hibernate:
-      ddl-auto: create
-    open-in-view: false
+      ddl-auto: ${JPA_DDL_AUTO:create}
+    open-in-view: ${JPA_OPEN_IN_VIEW:false}
   data:
     redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
       repositories:
-        enabled: false
+        enabled: ${REDIS_REPOSITORIES_ENABLED:false}
 
 jwt:
-  secret: test-secret-key-must-be-at-least-32-bytes-long
-  access-token-validity-seconds: 3600
-  refresh-token-validity-seconds: 1209600
-  refresh-cookie-secure: false
+  secret: ${JWT_SECRET:test-secret-key-must-be-at-least-32-bytes-long}
+  access-token-validity-seconds: ${JWT_ACCESS_TOKEN_VALIDITY_SECONDS:3600}
+  refresh-token-validity-seconds: ${JWT_REFRESH_TOKEN_VALIDITY_SECONDS:1209600}
+  refresh-cookie-secure: ${JWT_REFRESH_COOKIE_SECURE:false}
+
+server:
+  port: ${SERVER_PORT:0}
+  shutdown: ${SERVER_SHUTDOWN:graceful}
