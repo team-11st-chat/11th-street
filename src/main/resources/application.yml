@@ -1,14 +1,16 @@
 spring:
+  profiles:
+    active: local
   application:
     name: 11th-street
   datasource:
-    url: ${MYSQL_URL:jdbc:mysql://localhost:3306/realtime_chat}
-    username: ${MYSQL_USER:realtime_chat}
-    password: ${MYSQL_PASSWORD:realtime_chat}
+    url: ${MYSQL_URL}
+    username: ${MYSQL_USER}
+    password: ${MYSQL_PASSWORD}
   data:
     redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -21,4 +23,4 @@ jwt:
   secret: ${JWT_SECRET:dev-local-secret-change-me-please-32bytes-minimum-0123456789}
   access-token-validity-seconds: 3600
   refresh-token-validity-seconds: 1209600
-  refresh-cookie-secure: ${JWT_REFRESH_COOKIE_SECURE:false}
+  refresh-cookie-secure: ${JWT_REFRESH_COOKIE_SECURE:true}

@@ -1,0 +1,9 @@
+spring:
+  datasource:
+    url: ${MYSQL_URL}
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+jwt:
+  refresh-cookie-secure: false
