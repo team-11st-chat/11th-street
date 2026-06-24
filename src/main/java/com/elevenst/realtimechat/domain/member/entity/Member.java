@@ -1,4 +1,4 @@
-package com.elevenst.realtimechat.member.entity;
+package com.elevenst.realtimechat.domain.member.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

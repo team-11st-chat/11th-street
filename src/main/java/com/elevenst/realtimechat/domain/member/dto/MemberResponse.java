@@ -1,6 +1,6 @@
-package com.elevenst.realtimechat.member.dto;
+package com.elevenst.realtimechat.domain.member.dto;
 
-import com.elevenst.realtimechat.member.entity.Member;
+import com.elevenst.realtimechat.domain.member.entity.Member;
 
 public record MemberResponse(Long id, String email, String name) {
 

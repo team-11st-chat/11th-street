@@ -1,9 +1,9 @@
-package com.elevenst.realtimechat.member.controller;
+package com.elevenst.realtimechat.domain.member.controller;
 
 import com.elevenst.realtimechat.global.response.ApiResponse;
-import com.elevenst.realtimechat.member.dto.MemberCreateRequest;
-import com.elevenst.realtimechat.member.dto.MemberResponse;
-import com.elevenst.realtimechat.member.service.MemberService;
+import com.elevenst.realtimechat.domain.member.dto.MemberCreateRequest;
+import com.elevenst.realtimechat.domain.member.dto.MemberResponse;
+import com.elevenst.realtimechat.domain.member.service.MemberService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

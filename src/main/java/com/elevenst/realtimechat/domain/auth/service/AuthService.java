@@ -1,12 +1,12 @@
-package com.elevenst.realtimechat.auth.service;
+package com.elevenst.realtimechat.domain.auth.service;
 
-import com.elevenst.realtimechat.auth.dto.AuthTokens;
-import com.elevenst.realtimechat.auth.dto.LoginRequest;
-import com.elevenst.realtimechat.auth.exception.AuthErrorCode;
+import com.elevenst.realtimechat.domain.auth.dto.AuthTokens;
+import com.elevenst.realtimechat.domain.auth.dto.LoginRequest;
+import com.elevenst.realtimechat.domain.auth.exception.AuthErrorCode;
 import com.elevenst.realtimechat.global.exception.BusinessException;
 import com.elevenst.realtimechat.global.security.JwtTokenProvider;
-import com.elevenst.realtimechat.member.entity.Member;
-import com.elevenst.realtimechat.member.repository.MemberRepository;
+import com.elevenst.realtimechat.domain.member.entity.Member;
+import com.elevenst.realtimechat.domain.member.repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;

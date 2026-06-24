@@ -2,14 +2,15 @@ package com.elevenst.realtimechat.member.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.elevenst.realtimechat.domain.member.service.MemberService;
 import com.elevenst.realtimechat.global.exception.BusinessException;
-import com.elevenst.realtimechat.member.dto.MemberCreateRequest;
-import com.elevenst.realtimechat.member.exception.MemberErrorCode;
+import com.elevenst.realtimechat.domain.member.dto.MemberCreateRequest;
+import com.elevenst.realtimechat.domain.member.exception.MemberErrorCode;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
-import com.elevenst.realtimechat.member.repository.MemberRepository;
+import com.elevenst.realtimechat.domain.member.repository.MemberRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

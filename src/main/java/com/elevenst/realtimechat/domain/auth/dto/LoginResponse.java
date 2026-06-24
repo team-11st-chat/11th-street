@@ -1,4 +1,4 @@
-package com.elevenst.realtimechat.auth.dto;
+package com.elevenst.realtimechat.domain.auth.dto;
 
 public record LoginResponse(String accessToken, String tokenType, long expiresIn) {
 

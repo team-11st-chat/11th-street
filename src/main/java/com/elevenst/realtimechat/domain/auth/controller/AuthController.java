@@ -1,9 +1,9 @@
-package com.elevenst.realtimechat.auth.controller;
+package com.elevenst.realtimechat.domain.auth.controller;
 
-import com.elevenst.realtimechat.auth.dto.AuthTokens;
-import com.elevenst.realtimechat.auth.dto.LoginRequest;
-import com.elevenst.realtimechat.auth.dto.LoginResponse;
-import com.elevenst.realtimechat.auth.service.AuthService;
+import com.elevenst.realtimechat.domain.auth.dto.AuthTokens;
+import com.elevenst.realtimechat.domain.auth.dto.LoginRequest;
+import com.elevenst.realtimechat.domain.auth.dto.LoginResponse;
+import com.elevenst.realtimechat.domain.auth.service.AuthService;
 import com.elevenst.realtimechat.global.response.ApiResponse;
 import com.elevenst.realtimechat.global.security.JwtProperties;
 import com.elevenst.realtimechat.global.security.JwtTokenProvider;

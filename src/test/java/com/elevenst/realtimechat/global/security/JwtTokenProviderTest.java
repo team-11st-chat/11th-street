@@ -2,7 +2,7 @@ package com.elevenst.realtimechat.global.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.elevenst.realtimechat.member.entity.MemberRole;
+import com.elevenst.realtimechat.domain.member.entity.MemberRole;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import org.junit.jupiter.api.Test;

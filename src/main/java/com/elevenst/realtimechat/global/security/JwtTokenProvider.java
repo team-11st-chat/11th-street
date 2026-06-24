@@ -1,6 +1,6 @@
 package com.elevenst.realtimechat.global.security;
 
-import com.elevenst.realtimechat.member.entity.MemberRole;
+import com.elevenst.realtimechat.domain.member.entity.MemberRole;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;

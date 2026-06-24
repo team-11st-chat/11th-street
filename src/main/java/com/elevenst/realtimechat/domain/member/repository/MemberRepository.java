@@ -1,6 +1,6 @@
-package com.elevenst.realtimechat.member.repository;
+package com.elevenst.realtimechat.domain.member.repository;
 
-import com.elevenst.realtimechat.member.entity.Member;
+import com.elevenst.realtimechat.domain.member.entity.Member;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 

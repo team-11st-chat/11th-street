@@ -1,4 +1,4 @@
-package com.elevenst.realtimechat.auth.exception;
+package com.elevenst.realtimechat.domain.auth.exception;
 
 import com.elevenst.realtimechat.global.exception.ErrorCode;
 import org.springframework.http.HttpStatus;

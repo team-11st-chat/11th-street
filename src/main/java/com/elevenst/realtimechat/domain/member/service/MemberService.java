@@ -1,11 +1,11 @@
-package com.elevenst.realtimechat.member.service;
+package com.elevenst.realtimechat.domain.member.service;
 
 import com.elevenst.realtimechat.global.exception.BusinessException;
-import com.elevenst.realtimechat.member.dto.MemberCreateRequest;
-import com.elevenst.realtimechat.member.dto.MemberResponse;
-import com.elevenst.realtimechat.member.entity.Member;
-import com.elevenst.realtimechat.member.exception.MemberErrorCode;
-import com.elevenst.realtimechat.member.repository.MemberRepository;
+import com.elevenst.realtimechat.domain.member.dto.MemberCreateRequest;
+import com.elevenst.realtimechat.domain.member.dto.MemberResponse;
+import com.elevenst.realtimechat.domain.member.entity.Member;
+import com.elevenst.realtimechat.domain.member.exception.MemberErrorCode;
+import com.elevenst.realtimechat.domain.member.repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
