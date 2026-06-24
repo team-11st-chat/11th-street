@@ -1,11 +1,14 @@
 package com.elevenst.realtimechat.global.security;
 
 import com.elevenst.realtimechat.domain.member.entity.MemberRole;
+import com.elevenst.realtimechat.global.security.token.TokenClaims;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
+import java.util.UUID;
 import javax.crypto.SecretKey;
 import org.springframework.stereotype.Component;
 
@@ -45,9 +48,29 @@ public class JwtTokenProvider {
         return refreshTokenValiditySeconds;
     }
 
+    /**
+     * 서명과 만료를 검증하고 핵심 클레임을 추출한다. 검증 실패 시 {@link io.jsonwebtoken.JwtException}
+     * (만료 시 {@link io.jsonwebtoken.ExpiredJwtException}) 또는 형식 오류 시
+     * {@link IllegalArgumentException} 를 던지므로, 호출하는 인증 흐름에서 예외를 변환한다.
+     */
+    public TokenClaims parse(String token) {
+        Claims claims = Jwts.parser()
+                .verifyWith(key)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+        return new TokenClaims(
+                Long.valueOf(claims.getSubject()),
+                claims.getId(),
+                claims.get("type", String.class),
+                claims.getIssuedAt().toInstant(),
+                claims.getExpiration().toInstant());
+    }
+
     private io.jsonwebtoken.JwtBuilder baseBuilder(Long memberId, long validitySeconds) {
         Instant now = Instant.now();
         return Jwts.builder()
+                .id(UUID.randomUUID().toString())
                 .subject(String.valueOf(memberId))
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusSeconds(validitySeconds)));

@@ -11,6 +11,8 @@ import com.elevenst.realtimechat.domain.auth.service.AuthService;
 import com.elevenst.realtimechat.global.exception.BusinessException;
 import com.elevenst.realtimechat.global.security.JwtProperties;
 import com.elevenst.realtimechat.global.security.JwtTokenProvider;
+import com.elevenst.realtimechat.global.security.token.AccessTokenBlacklist;
+import com.elevenst.realtimechat.global.security.token.RefreshTokenStore;
 import com.elevenst.realtimechat.domain.member.entity.Member;
 import com.elevenst.realtimechat.domain.member.entity.MemberStatus;
 import com.elevenst.realtimechat.domain.member.repository.MemberRepository;
@@ -35,7 +37,10 @@ class AuthServiceTest {
         memberRepository = Mockito.mock(MemberRepository.class);
         passwordEncoder = new BCryptPasswordEncoder();
         JwtTokenProvider tokenProvider = new JwtTokenProvider(new JwtProperties(SECRET, 3600, 1209600, false));
-        authService = new AuthService(memberRepository, passwordEncoder, tokenProvider);
+        RefreshTokenStore refreshTokenStore = Mockito.mock(RefreshTokenStore.class);
+        AccessTokenBlacklist accessTokenBlacklist = Mockito.mock(AccessTokenBlacklist.class);
+        authService = new AuthService(
+                memberRepository, passwordEncoder, tokenProvider, refreshTokenStore, accessTokenBlacklist);
     }
 
     private Member activeMemberWithPassword(String rawPassword) {
