@@ -1,11 +1,11 @@
 package com.elevenst.realtimechat.domain.product.controller;
 
 import com.elevenst.realtimechat.domain.product.dto.ProductCreateRequest;
-import com.elevenst.realtimechat.domain.product.dto.ProductApiResponse;
 import com.elevenst.realtimechat.domain.product.dto.ProductResponse;
 import com.elevenst.realtimechat.domain.product.dto.ProductUpdateRequest;
 import com.elevenst.realtimechat.domain.product.service.ProductService;
 import com.elevenst.realtimechat.domain.product.support.FakeSellerStub;
+import com.elevenst.realtimechat.global.response.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -27,19 +27,19 @@ public class ProductController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ProductApiResponse<ProductResponse> createProduct(@Valid @RequestBody ProductCreateRequest request) {
-        return ProductApiResponse.success(
+    public ApiResponse<ProductResponse> createProduct(@Valid @RequestBody ProductCreateRequest request) {
+        return ApiResponse.success(
                 "상품이 등록되었습니다.",
                 productService.createProduct(fakeSellerStub.getSellerId(), request)
         );
     }
 
     @PatchMapping("/{productId}")
-    public ProductApiResponse<ProductResponse> updateProduct(
+    public ApiResponse<ProductResponse> updateProduct(
             @PathVariable Long productId,
             @Valid @RequestBody ProductUpdateRequest request
     ) {
-        return ProductApiResponse.success(
+        return ApiResponse.success(
                 "상품이 수정되었습니다.",
                 productService.updateProduct(fakeSellerStub.getSellerId(), productId, request)
         );

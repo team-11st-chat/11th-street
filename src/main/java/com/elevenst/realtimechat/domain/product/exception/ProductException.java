@@ -1,14 +1,10 @@
 package com.elevenst.realtimechat.domain.product.exception;
 
-import lombok.Getter;
+import com.elevenst.realtimechat.global.exception.BusinessException;
 
-@Getter
-public class ProductException extends RuntimeException {
-
-    private final ProductErrorCode errorCode;
+public class ProductException extends BusinessException {
 
     public ProductException(ProductErrorCode errorCode) {
-        super(errorCode.getMessage());
-        this.errorCode = errorCode;
+        super(errorCode);
     }
 }

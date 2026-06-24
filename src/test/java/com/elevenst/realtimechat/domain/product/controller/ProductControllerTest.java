@@ -15,9 +15,9 @@ import com.elevenst.realtimechat.domain.product.dto.ProductUpdateRequest;
 import com.elevenst.realtimechat.domain.product.entity.SaleStatus;
 import com.elevenst.realtimechat.domain.product.exception.ProductErrorCode;
 import com.elevenst.realtimechat.domain.product.exception.ProductException;
-import com.elevenst.realtimechat.domain.product.exception.ProductExceptionHandler;
 import com.elevenst.realtimechat.domain.product.service.ProductService;
 import com.elevenst.realtimechat.domain.product.support.FakeSellerStub;
+import com.elevenst.realtimechat.global.exception.GlobalExceptionHandler;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,7 +39,7 @@ class ProductControllerTest {
 
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new ProductController(productService, fakeSellerStub))
-                .setControllerAdvice(new ProductExceptionHandler())
+                .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
 
