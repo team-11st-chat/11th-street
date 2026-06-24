@@ -1,35 +1,85 @@
 package com.elevenst.realtimechat.global.exception;
 
 import com.elevenst.realtimechat.global.response.ApiResponse;
-import org.springframework.http.HttpStatus;
+import jakarta.validation.ConstraintViolationException;
+import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
-/**
- * STUB: 전역 예외 처리(공통 예외 모델·응답 변환)는 플랫폼 공통(global) 작업 단위 소유로, 이슈 #21 범위 밖이다.
- * 회원/인증 API 가 문서화된 상태코드(400/401/409)를 반환하도록 하는 최소 임시 구현이다.
- *
- * TODO(실제 구현 교체 지점): 플랫폼 공통의 정식 전역 예외 처리/에러 응답 규격으로 교체.
- */
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(ServiceException.class)
-    public ResponseEntity<ApiResponse<Void>> handleServiceException(ServiceException e) {
-        ErrorCode errorCode = e.getErrorCode();
-        return ResponseEntity.status(errorCode.getStatus())
-                .body(ApiResponse.fail(errorCode.getMessage()));
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException exception) {
+        ErrorCode errorCode = exception.getErrorCode();
+
+        return ResponseEntity
+                .status(errorCode.httpStatus())
+                .body(ApiResponse.error(exception.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse<Void>> handleValidationException(MethodArgumentNotValidException e) {
-        String message = e.getBindingResult().getFieldErrors().stream()
-                .findFirst()
-                .map(error -> error.getField() + ": " + error.getDefaultMessage())
-                .orElse("잘못된 요청입니다.");
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.fail(message));
+    public ResponseEntity<ApiResponse<List<ValidationErrorResponse>>> handleMethodArgumentNotValidException(
+            MethodArgumentNotValidException exception
+    ) {
+        List<ValidationErrorResponse> errors = exception.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .map(ValidationErrorResponse::from)
+                .toList();
+
+        return ResponseEntity
+                .status(CommonErrorCode.INVALID_REQUEST.httpStatus())
+                .body(ApiResponse.error(CommonErrorCode.INVALID_REQUEST.message(), errors));
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ApiResponse<List<ValidationErrorResponse>>> handleConstraintViolationException(
+            ConstraintViolationException exception
+    ) {
+        List<ValidationErrorResponse> errors = exception.getConstraintViolations()
+                .stream()
+                .map(violation -> new ValidationErrorResponse(
+                        violation.getPropertyPath().toString(),
+                        violation.getMessage()
+                ))
+                .toList();
+
+        return ResponseEntity
+                .status(CommonErrorCode.INVALID_REQUEST.httpStatus())
+                .body(ApiResponse.error(CommonErrorCode.INVALID_REQUEST.message(), errors));
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMethodArgumentTypeMismatchException(
+            MethodArgumentTypeMismatchException exception
+    ) {
+        String message = exception.getName() + " 값의 형식이 올바르지 않습니다.";
+
+        return ResponseEntity
+                .status(CommonErrorCode.INVALID_REQUEST.httpStatus())
+                .body(ApiResponse.error(message));
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleHttpRequestMethodNotSupportedException() {
+        return ResponseEntity
+                .status(CommonErrorCode.METHOD_NOT_ALLOWED.httpStatus())
+                .body(ApiResponse.error(CommonErrorCode.METHOD_NOT_ALLOWED.message()));
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiResponse<Void>> handleException(Exception exception) {
+        log.error("Unhandled exception occurred", exception);
+
+        return ResponseEntity
+                .status(CommonErrorCode.INTERNAL_SERVER_ERROR.httpStatus())
+                .body(ApiResponse.error(CommonErrorCode.INTERNAL_SERVER_ERROR.message()));
     }
 }
