@@ -7,6 +7,7 @@ import com.elevenst.realtimechat.member.entity.Member;
 import com.elevenst.realtimechat.member.exception.MemberErrorCode;
 import com.elevenst.realtimechat.member.repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +26,10 @@ public class MemberService {
         }
         String passwordHash = passwordEncoder.encode(request.password());
         Member member = Member.create(request.email(), passwordHash, request.name());
-        return MemberResponse.from(memberRepository.save(member));
+        try {
+            return MemberResponse.from(memberRepository.saveAndFlush(member));
+        } catch (DataIntegrityViolationException e) {
+            throw new ServiceException(MemberErrorCode.EMAIL_DUPLICATED);
+        }
     }
 }

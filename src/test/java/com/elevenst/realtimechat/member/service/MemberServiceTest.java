@@ -38,14 +38,14 @@ class MemberServiceTest {
         // given
         MemberCreateRequest request = new MemberCreateRequest("buyer@example.com", "plainPassword1", "구매자");
         given(memberRepository.existsByEmail("buyer@example.com")).willReturn(false);
-        given(memberRepository.save(any(Member.class))).willAnswer(invocation -> invocation.getArgument(0));
+        given(memberRepository.saveAndFlush(any(Member.class))).willAnswer(invocation -> invocation.getArgument(0));
 
         // when
         MemberResponse response = memberService.signup(request);
 
         // then
         ArgumentCaptor<Member> captor = ArgumentCaptor.forClass(Member.class);
-        Mockito.verify(memberRepository).save(captor.capture());
+        Mockito.verify(memberRepository).saveAndFlush(captor.capture());
         Member saved = captor.getValue();
         assertThat(saved.getPasswordHash()).isNotEqualTo("plainPassword1");
         assertThat(passwordEncoder.matches("plainPassword1", saved.getPasswordHash())).isTrue();
@@ -59,6 +59,20 @@ class MemberServiceTest {
         // given
         MemberCreateRequest request = new MemberCreateRequest("dup@example.com", "plainPassword1", "중복");
         given(memberRepository.existsByEmail("dup@example.com")).willReturn(true);
+
+        // when & then
+        assertThatThrownBy(() -> memberService.signup(request))
+                .isInstanceOf(ServiceException.class)
+                .hasMessage(MemberErrorCode.EMAIL_DUPLICATED.getMessage());
+    }
+
+    @Test
+    void 저장시_데이터_정합성_예외가_발생하면_이메일_중복_예외가_발생한다() {
+        // given
+        MemberCreateRequest request = new MemberCreateRequest("dup@example.com", "plainPassword1", "중복");
+        given(memberRepository.existsByEmail("dup@example.com")).willReturn(false);
+        given(memberRepository.saveAndFlush(any(Member.class)))
+                .willThrow(new org.springframework.dao.DataIntegrityViolationException("Duplicate entry"));
 
         // when & then
         assertThatThrownBy(() -> memberService.signup(request))
