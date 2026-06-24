@@ -13,6 +13,9 @@ import com.elevenst.realtimechat.domain.product.dto.ProductCreateRequest;
 import com.elevenst.realtimechat.domain.product.dto.ProductResponse;
 import com.elevenst.realtimechat.domain.product.dto.ProductUpdateRequest;
 import com.elevenst.realtimechat.domain.product.entity.SaleStatus;
+import com.elevenst.realtimechat.domain.product.exception.ProductErrorCode;
+import com.elevenst.realtimechat.domain.product.exception.ProductException;
+import com.elevenst.realtimechat.domain.product.exception.ProductExceptionHandler;
 import com.elevenst.realtimechat.domain.product.service.ProductService;
 import com.elevenst.realtimechat.domain.product.support.FakeSellerStub;
 import java.math.BigDecimal;
@@ -36,6 +39,7 @@ class ProductControllerTest {
 
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new ProductController(productService, fakeSellerStub))
+                .setControllerAdvice(new ProductExceptionHandler())
                 .build();
     }
 
@@ -107,5 +111,21 @@ class ProductControllerTest {
                                 }
                                 """))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updateProduct_returnsNotFoundWhenProductDoesNotExist() throws Exception {
+        when(productService.updateProduct(eq(1L), eq(999L), any(ProductUpdateRequest.class)))
+                .thenThrow(new ProductException(ProductErrorCode.PRODUCT_NOT_FOUND));
+
+        mockMvc.perform(patch("/api/v1/products/{productId}", 999L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "무선 이어폰 Pro"
+                                }
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("상품을 찾을 수 없습니다."));
     }
 }
