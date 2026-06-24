@@ -19,7 +19,8 @@ public record ProductCreateRequest(
         @Positive
         BigDecimal price,
 
+        @NotNull
         @Min(0)
-        int stockQuantity
+        Integer stockQuantity
 ) {
 }
