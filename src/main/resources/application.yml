@@ -16,3 +16,9 @@ spring:
 
 server:
   shutdown: graceful
+
+jwt:
+  secret: ${JWT_SECRET:dev-local-secret-change-me-please-32bytes-minimum-0123456789}
+  access-token-validity-seconds: 3600
+  refresh-token-validity-seconds: 1209600
+  refresh-cookie-secure: ${JWT_REFRESH_COOKIE_SECURE:false}
