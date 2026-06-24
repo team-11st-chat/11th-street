@@ -1,6 +1,6 @@
 package com.elevenst.realtimechat.member.service;
 
-import com.elevenst.realtimechat.global.exception.ServiceException;
+import com.elevenst.realtimechat.global.exception.BusinessException;
 import com.elevenst.realtimechat.member.dto.MemberCreateRequest;
 import com.elevenst.realtimechat.member.dto.MemberResponse;
 import com.elevenst.realtimechat.member.entity.Member;
@@ -22,14 +22,14 @@ public class MemberService {
     @Transactional
     public MemberResponse signup(MemberCreateRequest request) {
         if (memberRepository.existsByEmail(request.email())) {
-            throw new ServiceException(MemberErrorCode.EMAIL_DUPLICATED);
+            throw new BusinessException(MemberErrorCode.EMAIL_DUPLICATED);
         }
         String passwordHash = passwordEncoder.encode(request.password());
         Member member = Member.create(request.email(), passwordHash, request.name());
         try {
             return MemberResponse.from(memberRepository.saveAndFlush(member));
         } catch (DataIntegrityViolationException e) {
-            throw new ServiceException(MemberErrorCode.EMAIL_DUPLICATED);
+            throw new BusinessException(MemberErrorCode.EMAIL_DUPLICATED);
         }
     }
 }

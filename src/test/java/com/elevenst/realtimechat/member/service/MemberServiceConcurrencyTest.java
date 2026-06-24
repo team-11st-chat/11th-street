@@ -2,7 +2,7 @@ package com.elevenst.realtimechat.member.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.elevenst.realtimechat.global.exception.ServiceException;
+import com.elevenst.realtimechat.global.exception.BusinessException;
 import com.elevenst.realtimechat.member.dto.MemberCreateRequest;
 import com.elevenst.realtimechat.member.exception.MemberErrorCode;
 import java.util.concurrent.CountDownLatch;
@@ -71,10 +71,10 @@ class MemberServiceConcurrencyTest {
                     successCount.incrementAndGet();
                     log.info("[스레드-{}] 회원가입 성공!", threadNumber);
                     
-                } catch (ServiceException e) {
+                } catch (BusinessException e) {
                     if (e.getErrorCode() == MemberErrorCode.EMAIL_DUPLICATED) {
                         duplicatedExceptionCount.incrementAndGet();
-                        log.warn("[스레드-{}] 예외 발생: {}", threadNumber, e.getErrorCode().getMessage());
+                        log.warn("[스레드-{}] 예외 발생: {}", threadNumber, e.getErrorCode().message());
                     }
                 } catch (Exception e) {
                     log.error("[스레드-{}] 예상치 못한 에러: ", threadNumber, e);

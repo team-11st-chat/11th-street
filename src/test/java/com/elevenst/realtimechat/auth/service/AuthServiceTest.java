@@ -7,7 +7,7 @@ import static org.mockito.BDDMockito.given;
 import com.elevenst.realtimechat.auth.dto.AuthTokens;
 import com.elevenst.realtimechat.auth.dto.LoginRequest;
 import com.elevenst.realtimechat.auth.exception.AuthErrorCode;
-import com.elevenst.realtimechat.global.exception.ServiceException;
+import com.elevenst.realtimechat.global.exception.BusinessException;
 import com.elevenst.realtimechat.global.security.JwtProperties;
 import com.elevenst.realtimechat.global.security.JwtTokenProvider;
 import com.elevenst.realtimechat.member.entity.Member;
@@ -66,8 +66,8 @@ class AuthServiceTest {
 
         // when & then
         assertThatThrownBy(() -> authService.login(new LoginRequest("buyer@example.com", "wrongPassword")))
-                .isInstanceOf(ServiceException.class)
-                .hasMessage(AuthErrorCode.INVALID_CREDENTIALS.getMessage());
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(AuthErrorCode.INVALID_CREDENTIALS.message());
     }
 
     @Test
@@ -77,8 +77,8 @@ class AuthServiceTest {
 
         // when & then
         assertThatThrownBy(() -> authService.login(new LoginRequest("none@example.com", "plainPassword1")))
-                .isInstanceOf(ServiceException.class)
-                .hasMessage(AuthErrorCode.INVALID_CREDENTIALS.getMessage());
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(AuthErrorCode.INVALID_CREDENTIALS.message());
     }
 
     @Test
@@ -90,7 +90,7 @@ class AuthServiceTest {
 
         // when & then
         assertThatThrownBy(() -> authService.login(new LoginRequest("buyer@example.com", "plainPassword1")))
-                .isInstanceOf(ServiceException.class)
-                .hasMessage(AuthErrorCode.INVALID_CREDENTIALS.getMessage());
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(AuthErrorCode.INVALID_CREDENTIALS.message());
     }
 }

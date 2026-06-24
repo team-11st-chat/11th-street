@@ -5,7 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 
-import com.elevenst.realtimechat.global.exception.ServiceException;
+import com.elevenst.realtimechat.global.exception.BusinessException;
 import com.elevenst.realtimechat.member.dto.MemberCreateRequest;
 import com.elevenst.realtimechat.member.dto.MemberResponse;
 import com.elevenst.realtimechat.member.entity.Member;
@@ -62,8 +62,8 @@ class MemberServiceTest {
 
         // when & then
         assertThatThrownBy(() -> memberService.signup(request))
-                .isInstanceOf(ServiceException.class)
-                .hasMessage(MemberErrorCode.EMAIL_DUPLICATED.getMessage());
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(MemberErrorCode.EMAIL_DUPLICATED.message());
     }
 
     @Test
@@ -76,7 +76,7 @@ class MemberServiceTest {
 
         // when & then
         assertThatThrownBy(() -> memberService.signup(request))
-                .isInstanceOf(ServiceException.class)
-                .hasMessage(MemberErrorCode.EMAIL_DUPLICATED.getMessage());
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(MemberErrorCode.EMAIL_DUPLICATED.message());
     }
 }

@@ -26,14 +26,14 @@ public class JwtTokenProvider {
         return baseBuilder(memberId, accessTokenValiditySeconds)
                 .claim("type", "access")
                 .claim("role", role.name())
-                .signWith(key)
+                .signWith(key, Jwts.SIG.HS256)
                 .compact();
     }
 
     public String createRefreshToken(Long memberId) {
         return baseBuilder(memberId, refreshTokenValiditySeconds)
                 .claim("type", "refresh")
-                .signWith(key)
+                .signWith(key, Jwts.SIG.HS256)
                 .compact();
     }
 

@@ -14,9 +14,18 @@ class JwtTokenProviderTest {
     private final JwtTokenProvider provider =
             new JwtTokenProvider(new JwtProperties(SECRET, 3600, 1209600, false));
 
-    private static String decodePayload(String token) {
+    private static String decodeSegment(String token, int index) {
         String[] parts = token.split("\\.");
-        return new String(Base64.getUrlDecoder().decode(parts[1]), StandardCharsets.UTF_8);
+        return new String(Base64.getUrlDecoder().decode(parts[index]), StandardCharsets.UTF_8);
+    }
+
+    @Test
+    void 토큰은_API_Spec에_따라_HS256_으로_서명한다() {
+        // when
+        String token = provider.createAccessToken(42L, MemberRole.BUYER);
+
+        // then
+        assertThat(decodeSegment(token, 0)).contains("\"alg\":\"HS256\"");
     }
 
     @Test
@@ -25,7 +34,7 @@ class JwtTokenProviderTest {
         String token = provider.createAccessToken(42L, MemberRole.BUYER);
 
         // then
-        String payload = decodePayload(token);
+        String payload = decodeSegment(token, 1);
         assertThat(payload).contains("\"sub\":\"42\"");
         assertThat(payload).contains("\"role\":\"BUYER\"");
         assertThat(payload).contains("\"type\":\"access\"");
@@ -37,7 +46,7 @@ class JwtTokenProviderTest {
         String token = provider.createRefreshToken(42L);
 
         // then
-        String payload = decodePayload(token);
+        String payload = decodeSegment(token, 1);
         assertThat(payload).contains("\"sub\":\"42\"");
         assertThat(payload).contains("\"type\":\"refresh\"");
         assertThat(payload).doesNotContain("role");
