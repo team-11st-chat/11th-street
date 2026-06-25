@@ -25,7 +25,7 @@ public class ProductSearchService {
 
     @Cacheable(
             cacheNames = PRODUCT_SEARCH_CACHE,
-            key = "T(java.lang.String).format('%s:%s:%s:%s', #normalizedKeyword, #categoryId, #page, #size)"
+            key = "T(com.elevenst.realtimechat.domain.product.service.ProductSearchCacheKey).of(#normalizedKeyword, #categoryId, #page, #size)"
     )
     @Transactional(readOnly = true)
     public ProductPageResponse searchProductsWithCache(String normalizedKeyword, Long categoryId, int page, int size) {

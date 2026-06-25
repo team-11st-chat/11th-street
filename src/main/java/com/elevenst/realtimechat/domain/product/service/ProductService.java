@@ -25,6 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 public class ProductService {
 
+    private static final int MAX_PAGE_SIZE = 100;
+
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final SearchKeywordRecorder searchKeywordRecorder;
@@ -63,24 +65,25 @@ public class ProductService {
 
     @Transactional
     public ProductPageResponse searchProducts(String keyword, Long categoryId, int page, int size, String guestId) {
-        validatePageRequest(page, size);
-        String normalizedKeyword = normalizeKeyword(keyword);
-        if (normalizedKeyword != null) {
-            recordSearchKeyword(keyword, categoryId, guestId);
-        }
-
-        return productSearchService.searchProducts(normalizedKeyword, categoryId, page, size);
+        return searchProducts(keyword, categoryId, page, size, guestId, false);
     }
 
     @Transactional
     public ProductPageResponse searchProductsV2(String keyword, Long categoryId, int page, int size, String guestId) {
+        return searchProducts(keyword, categoryId, page, size, guestId, true);
+    }
+
+    private ProductPageResponse searchProducts(String keyword, Long categoryId, int page, int size, String guestId, boolean cacheable) {
         validatePageRequest(page, size);
         String normalizedKeyword = normalizeKeyword(keyword);
         if (normalizedKeyword != null) {
             recordSearchKeyword(keyword, categoryId, guestId);
         }
 
-        return productSearchService.searchProductsWithCache(normalizedKeyword, categoryId, page, size);
+        if (cacheable) {
+            return productSearchService.searchProductsWithCache(normalizedKeyword, categoryId, page, size);
+        }
+        return productSearchService.searchProducts(normalizedKeyword, categoryId, page, size);
     }
 
     private Product getProductEntity(Long productId) {
@@ -94,7 +97,7 @@ public class ProductService {
     }
 
     private void validatePageRequest(int page, int size) {
-        if (page < 0 || size < 1) {
+        if (page < 0 || size < 1 || size > MAX_PAGE_SIZE) {
             throw new ProductException(ProductErrorCode.INVALID_PAGE_REQUEST);
         }
     }

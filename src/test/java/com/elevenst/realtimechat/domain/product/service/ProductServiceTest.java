@@ -175,6 +175,13 @@ class ProductServiceTest {
     }
 
     @Test
+    void searchProductsV2_throwsException_whenSizeExceedsLimit() {
+        assertThatThrownBy(() -> productService.searchProductsV2("이어폰", 11L, 0, 101, "guest_123"))
+                .isInstanceOf(ProductException.class)
+                .hasMessage("페이징 파라미터가 올바르지 않습니다.");
+    }
+
+    @Test
     void searchProducts_doesNotRecordKeyword_whenKeywordIsBlank() {
         Page<Product> emptyPage = new PageImpl<>(List.of());
         when(productSearchService.searchProducts(isNull(), eq(11L), eq(0), eq(10)))

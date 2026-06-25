@@ -2,11 +2,10 @@ package com.elevenst.realtimechat.global.config;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.time.Duration;
-import java.util.List;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
-import org.springframework.cache.caffeine.CaffeineCache;
-import org.springframework.cache.support.SimpleCacheManager;
+import org.springframework.cache.caffeine.CaffeineCacheManager;
+import org.springframework.cache.transaction.TransactionAwareCacheManagerProxy;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -21,14 +20,11 @@ public class CacheConfig {
 
     @Bean
     public CacheManager cacheManager() {
-        SimpleCacheManager cacheManager = new SimpleCacheManager();
-        cacheManager.setCaches(List.of(
-                new CaffeineCache(PRODUCT_SEARCH_CACHE, Caffeine.newBuilder()
-                        .expireAfterWrite(PRODUCT_SEARCH_TTL)
-                        .maximumSize(PRODUCT_SEARCH_MAXIMUM_SIZE)
-                        .recordStats()
-                        .build())
-        ));
-        return cacheManager;
+        CaffeineCacheManager cacheManager = new CaffeineCacheManager(PRODUCT_SEARCH_CACHE);
+        cacheManager.setCaffeine(Caffeine.newBuilder()
+                .expireAfterWrite(PRODUCT_SEARCH_TTL)
+                .maximumSize(PRODUCT_SEARCH_MAXIMUM_SIZE)
+                .recordStats());
+        return new TransactionAwareCacheManagerProxy(cacheManager);
     }
 }
