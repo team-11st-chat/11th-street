@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 public class RedisTestStateResetter {
 
     private static final int SCAN_COUNT = 1_000;
+    private static final int DELETE_CHUNK_SIZE = 500;
 
     private final StringRedisTemplate redisTemplate;
     private final RedisKeyPrefixProperties redisKeyPrefixProperties;
@@ -26,28 +27,29 @@ public class RedisTestStateResetter {
     }
 
     public void reset() {
-        redisKeyPrefixProperties.validateSeparated();
         deleteByPattern(redisKeyPrefixProperties.cacheKey("*"));
         deleteByPattern(redisKeyPrefixProperties.lockKey("*"));
     }
 
     private void deleteByPattern(String pattern) {
-        List<String> keys = scanKeys(pattern);
-        if (!keys.isEmpty()) {
-            redisTemplate.delete(keys);
-        }
-    }
-
-    private List<String> scanKeys(String pattern) {
         ScanOptions options = ScanOptions.scanOptions()
                 .match(pattern)
                 .count(SCAN_COUNT)
                 .build();
 
-        List<String> keys = new ArrayList<>();
+        List<String> keys = new ArrayList<>(DELETE_CHUNK_SIZE);
         try (Cursor<String> cursor = redisTemplate.scan(options)) {
-            cursor.forEachRemaining(keys::add);
+            cursor.forEachRemaining(key -> {
+                keys.add(key);
+                if (keys.size() >= DELETE_CHUNK_SIZE) {
+                    redisTemplate.delete(keys);
+                    keys.clear();
+                }
+            });
         }
-        return keys;
+
+        if (!keys.isEmpty()) {
+            redisTemplate.delete(keys);
+        }
     }
 }

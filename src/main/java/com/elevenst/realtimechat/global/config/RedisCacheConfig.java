@@ -23,8 +23,6 @@ public class RedisCacheConfig {
             RedisConnectionFactory redisConnectionFactory,
             RedisKeyPrefixProperties redisKeyPrefixProperties
     ) {
-        redisKeyPrefixProperties.validateSeparated();
-
         RedisCacheConfiguration cacheConfiguration = RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(DEFAULT_REDIS_CACHE_TTL)
                 .computePrefixWith(cacheName -> redisKeyPrefixProperties.cacheKey(cacheName + "::"))

@@ -54,5 +54,5 @@ jwt:
 app:
   redis:
     key-prefix:
-      cache: "${REDIS_CACHE_KEY_PREFIX:cache:}"
+      cache: "${REDIS_CACHE_KEY_PREFIX:cache:v1:}"
       lock: "${REDIS_LOCK_KEY_PREFIX:lock:}"
