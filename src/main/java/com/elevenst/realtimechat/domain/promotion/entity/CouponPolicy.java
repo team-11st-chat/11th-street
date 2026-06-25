@@ -10,6 +10,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.PostLoad;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -72,6 +73,15 @@ public class CouponPolicy extends BaseEntity {
         // 생성 시 remaining_quantity 도 total_quantity 와 같은 값으로 초기화 (API-Spec 8.1)
         this.remainingQuantity = totalQuantity;
         this.status = calculateStatus(LocalDateTime.now());
+    }
+
+    /**
+     * 영속성 컨텍스트에 로드되는 시점에 실시간 상태를 동기화한다.
+     * 컬럼에 저장된 상태가 발급 기간 경과 등으로 실제 상태와 어긋나는 것을 방지한다.
+     */
+    @PostLoad
+    private void syncStatusOnLoad() {
+        updateStatus(LocalDateTime.now());
     }
 
     /**

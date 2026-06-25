@@ -3,7 +3,7 @@ package com.elevenst.realtimechat.domain.promotion.controller;
 import com.elevenst.realtimechat.domain.promotion.dto.CouponPolicyCreateRequest;
 import com.elevenst.realtimechat.domain.promotion.dto.CouponPolicyResponse;
 import com.elevenst.realtimechat.domain.promotion.dto.IssuedCouponResponse;
-import com.elevenst.realtimechat.domain.promotion.service.CouponIssueService;
+import com.elevenst.realtimechat.domain.promotion.service.CouponIssueFacade;
 import com.elevenst.realtimechat.domain.promotion.service.CouponPolicyService;
 import com.elevenst.realtimechat.global.response.ApiResponse;
 import com.elevenst.realtimechat.global.security.AuthenticatedMember;
@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class CouponController {
 
     private final CouponPolicyService couponPolicyService;
-    private final CouponIssueService couponIssueService;
+    private final CouponIssueFacade couponIssueFacade;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -48,7 +48,7 @@ public class CouponController {
     ) {
         return ApiResponse.success(
                 "쿠폰이 발급되었습니다.",
-                couponIssueService.issueCoupon(member.memberId(), couponPolicyId, requestId)
+                couponIssueFacade.issueCoupon(member.memberId(), couponPolicyId, requestId)
         );
     }
 
