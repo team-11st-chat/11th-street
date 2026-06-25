@@ -58,4 +58,7 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+    def perfEnv = System.getenv("PERFORMANCE_TEST")
+    println ">>> PERFORMANCE_TEST System.getenv: [${perfEnv}]"
+    environment "PERFORMANCE_TEST", (perfEnv ?: "false").trim()
 }
