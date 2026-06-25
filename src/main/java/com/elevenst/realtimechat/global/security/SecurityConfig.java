@@ -40,6 +40,8 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // 헬스 체크 경로는 배포/운영 프로브가 인증 없이 확인할 수 있어야 한다.
+                        .requestMatchers(HttpMethod.GET, "/health", "/health/**").permitAll()
                         // 공개 경로: 회원가입과 토큰 발급·재발급·로그아웃은 Access Token 인증이 필요 없다.
                         // refresh/logout 은 Refresh Token 쿠키·Access Token 을 직접 검증한다.
                         .requestMatchers(HttpMethod.POST,

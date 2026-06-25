@@ -28,6 +28,24 @@ spring:
     locations: ${FLYWAY_LOCATIONS:classpath:db/migration}
     validate-on-migrate: ${FLYWAY_VALIDATE_ON_MIGRATE:true}
 
+management:
+  endpoints:
+    web:
+      base-path: /
+      exposure:
+        include: health
+      path-mapping:
+        health: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,db,redis
+        liveness:
+          include: livenessState
+
 jwt:
   secret: ${JWT_SECRET}
   access-token-validity-seconds: ${JWT_ACCESS_TOKEN_VALIDITY_SECONDS}
