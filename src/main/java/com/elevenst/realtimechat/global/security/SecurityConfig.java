@@ -42,6 +42,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // 공개 경로: 회원가입과 토큰 발급·재발급·로그아웃은 Access Token 인증이 필요 없다.
                         // refresh/logout 은 Refresh Token 쿠키·Access Token 을 직접 검증한다.
+                        .requestMatchers(HttpMethod.GET, "/health").permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/members",
                                 "/api/v1/auth/login",
