@@ -1,0 +1,360 @@
+### =====================================================================
+### 쿠폰 정책 / 선착순 발급 API 테스트 (이슈 #25)
+### IntelliJ HTTP Client 형식. 위에서부터 순서대로 실행하면 됩니다.
+###
+### 사전 준비
+###   1) 인프라 기동:   docker compose up -d   (mysql:3307, redis:6379)
+###   2) 애플리케이션 기동: ./gradlew bootRun   (기본 포트 8080)
+###
+### SUPER_ADMIN 시드 (정책 생성 API 는 SUPER_ADMIN 만 허용)
+###   회원가입은 항상 BUYER 로 생성되므로, 아래 "관리자 회원가입"(#1) 실행 후
+###   DB 에서 역할을 한 번 올려준 뒤 "관리자 로그인"(#3) 을 실행하세요.
+###     docker exec -i 11th-street-local-mysql-1 \
+###       mysql -urealtime_chat -prealtime_chat realtime_chat \
+###       -e "UPDATE member SET role='SUPER_ADMIN' WHERE email='admin01@example.com';"
+###
+### 발급 동시성(분산 락)·멱등성(Request-ID)은 현재 Fake 구현(FakeLockManager,
+### FakeIdempotencyManager)으로 동작합니다. 실제 Redisson/Redis 교체 후에는
+### 동일 Request-ID 재시도가 COUPON_003 으로 막히는지 다시 검증해야 합니다.
+### =====================================================================
+
+@host = http://localhost:8080
+@adminEmail = admin01@example.com
+@buyerEmail = buyer01@example.com
+@buyer2Email = buyer02@example.com
+@password = plainPassword1
+
+
+### 1. 관리자 회원가입 (201) — 실행 후 위 SQL 로 SUPER_ADMIN 승격 필요
+POST {{host}}/api/v1/members
+Content-Type: application/json
+
+{
+  "email": "{{adminEmail}}",
+  "password": "{{password}}",
+  "name": "관리자01"
+}
+
+
+### 2. 구매자 회원가입 (201)
+POST {{host}}/api/v1/members
+Content-Type: application/json
+
+{
+  "email": "{{buyerEmail}}",
+  "password": "{{password}}",
+  "name": "구매자01"
+}
+
+
+### 2-1. 두 번째 구매자 회원가입 (201) — 수량 소진(COUPON_002) 테스트용
+POST {{host}}/api/v1/members
+Content-Type: application/json
+
+{
+  "email": "{{buyer2Email}}",
+  "password": "{{password}}",
+  "name": "구매자02"
+}
+
+
+### 3. 관리자 로그인 (200) — accessToken(SUPER_ADMIN) 저장
+# @name adminLogin
+POST {{host}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{adminEmail}}",
+  "password": "{{password}}"
+}
+
+> {%
+    client.test("200 OK", () => client.assert(response.status === 200, "status: " + response.status));
+    client.global.set("adminToken", response.body.data.accessToken);
+%}
+
+
+### 4. 구매자 로그인 (200) — accessToken(BUYER) 저장
+# @name buyerLogin
+POST {{host}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{buyerEmail}}",
+  "password": "{{password}}"
+}
+
+> {%
+    client.test("200 OK", () => client.assert(response.status === 200, "status: " + response.status));
+    client.global.set("buyerToken", response.body.data.accessToken);
+%}
+
+
+### 4-1. 두 번째 구매자 로그인 (200)
+# @name buyer2Login
+POST {{host}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{buyer2Email}}",
+  "password": "{{password}}"
+}
+
+> {%
+    client.test("200 OK", () => client.assert(response.status === 200, "status: " + response.status));
+    client.global.set("buyer2Token", response.body.data.accessToken);
+%}
+
+
+### =====================================================================
+### 쿠폰 정책 등록 (POST /api/v1/coupons, SUPER_ADMIN)
+### =====================================================================
+
+### 5. 정책 등록 - 성공: 진행 중(ACTIVE) 정률 + 한도 (201)
+# @name createActivePolicy
+POST {{host}}/api/v1/coupons
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "여름맞이 10% 할인",
+  "discountType": "PERCENTAGE",
+  "discountValue": 10,
+  "maxDiscountAmount": 5000,
+  "issueStartsAt": "2026-06-01T00:00:00",
+  "issueEndsAt": "2026-12-31T23:59:59",
+  "totalQuantity": 1000
+}
+
+> {%
+    client.test("201 Created", () => client.assert(response.status === 201, "status: " + response.status));
+    client.test("상태 ACTIVE", () => client.assert(response.body.data.status === "ACTIVE", "status: " + response.body.data.status));
+    client.test("remainingQuantity = totalQuantity", () => client.assert(response.body.data.remainingQuantity === 1000));
+    client.global.set("activePolicyId", response.body.data.id);
+%}
+
+
+### 6. 정책 등록 - 성공: 정액(FIXED_AMOUNT), 한도 없음 (201)
+POST {{host}}/api/v1/coupons
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "3,000원 정액 할인",
+  "discountType": "FIXED_AMOUNT",
+  "discountValue": 3000,
+  "issueStartsAt": "2026-06-01T00:00:00",
+  "issueEndsAt": "2026-12-31T23:59:59",
+  "totalQuantity": 500
+}
+
+> {%
+    client.test("201 Created", () => client.assert(response.status === 201, "status: " + response.status));
+    client.test("maxDiscountAmount null", () => client.assert(response.body.data.maxDiscountAmount === null));
+%}
+
+
+### 7. 정책 등록 - 성공: 시작 전(SCHEDULED) — COUPON_001 테스트용 (201)
+# @name createScheduledPolicy
+POST {{host}}/api/v1/coupons
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "다가오는 가을 세일",
+  "discountType": "PERCENTAGE",
+  "discountValue": 20,
+  "maxDiscountAmount": 10000,
+  "issueStartsAt": "2026-09-01T00:00:00",
+  "issueEndsAt": "2026-09-30T23:59:59",
+  "totalQuantity": 100
+}
+
+> {%
+    client.test("201 Created", () => client.assert(response.status === 201, "status: " + response.status));
+    client.test("상태 SCHEDULED", () => client.assert(response.body.data.status === "SCHEDULED", "status: " + response.body.data.status));
+    client.global.set("scheduledPolicyId", response.body.data.id);
+%}
+
+
+### 8. 정책 등록 - 성공: 잔여 1장(ACTIVE) — COUPON_002 테스트용 (201)
+# @name createLastOnePolicy
+POST {{host}}/api/v1/coupons
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "단 한 장 선착순",
+  "discountType": "FIXED_AMOUNT",
+  "discountValue": 1000,
+  "issueStartsAt": "2026-06-01T00:00:00",
+  "issueEndsAt": "2026-12-31T23:59:59",
+  "totalQuantity": 1
+}
+
+> {%
+    client.test("201 Created", () => client.assert(response.status === 201, "status: " + response.status));
+    client.global.set("lastOnePolicyId", response.body.data.id);
+%}
+
+
+### 9. 정책 등록 - 실패: BUYER 권한 (403 UNAUTHORIZED_ADMIN)
+POST {{host}}/api/v1/coupons
+Content-Type: application/json
+Authorization: Bearer {{buyerToken}}
+
+{
+  "name": "권한없는 등록",
+  "discountType": "PERCENTAGE",
+  "discountValue": 10,
+  "issueStartsAt": "2026-06-01T00:00:00",
+  "issueEndsAt": "2026-12-31T23:59:59",
+  "totalQuantity": 10
+}
+
+> {%
+    client.test("403 Forbidden", () => client.assert(response.status === 403, "status: " + response.status));
+%}
+
+
+### 10. 정책 등록 - 실패: 종료 < 시작 (400)
+POST {{host}}/api/v1/coupons
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "잘못된 기간",
+  "discountType": "PERCENTAGE",
+  "discountValue": 10,
+  "issueStartsAt": "2026-12-31T00:00:00",
+  "issueEndsAt": "2026-06-01T00:00:00",
+  "totalQuantity": 10
+}
+
+> {%
+    client.test("400 Bad Request", () => client.assert(response.status === 400, "status: " + response.status));
+%}
+
+
+### 11. 정책 등록 - 실패: 정률 할인값 100 초과 (400)
+POST {{host}}/api/v1/coupons
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "비정상 할인율",
+  "discountType": "PERCENTAGE",
+  "discountValue": 150,
+  "issueStartsAt": "2026-06-01T00:00:00",
+  "issueEndsAt": "2026-12-31T23:59:59",
+  "totalQuantity": 10
+}
+
+> {%
+    client.test("400 Bad Request", () => client.assert(response.status === 400, "status: " + response.status));
+%}
+
+
+### 12. 정책 등록 - 실패: 미인증 (401)
+POST {{host}}/api/v1/coupons
+Content-Type: application/json
+
+{
+  "name": "토큰 없음",
+  "discountType": "PERCENTAGE",
+  "discountValue": 10,
+  "issueStartsAt": "2026-06-01T00:00:00",
+  "issueEndsAt": "2026-12-31T23:59:59",
+  "totalQuantity": 10
+}
+
+> {%
+    client.test("401 Unauthorized", () => client.assert(response.status === 401, "status: " + response.status));
+%}
+
+
+### =====================================================================
+### 선착순 쿠폰 발급 (POST /api/v1/coupons/{couponPolicyId}/issue)
+### =====================================================================
+
+### 13. 발급 - 성공: 구매자01, ACTIVE 정책 (201, status ISSUED)
+POST {{host}}/api/v1/coupons/{{activePolicyId}}/issue
+Authorization: Bearer {{buyerToken}}
+Request-ID: coupon-req-0001
+
+> {%
+    client.test("201 Created", () => client.assert(response.status === 201, "status: " + response.status));
+    client.test("status ISSUED", () => client.assert(response.body.data.status === "ISSUED"));
+    client.test("couponPolicyId 일치", () => client.assert(response.body.data.couponPolicyId === client.global.get("activePolicyId")));
+%}
+
+
+### 14. 발급 - 실패: 동일 Request-ID 재시도 (409 COUPON_003)
+### (현재 FakeIdempotencyManager 는 항상 통과하므로, 이 단계는 1인 1장(이미 발급) 규칙으로 COUPON_003 이 됩니다.
+###  실제 Redis 멱등성 교체 후에는 멱등성 단계에서 곧바로 COUPON_003 으로 차단되어야 합니다.)
+POST {{host}}/api/v1/coupons/{{activePolicyId}}/issue
+Authorization: Bearer {{buyerToken}}
+Request-ID: coupon-req-0001
+
+> {%
+    client.test("409 Conflict", () => client.assert(response.status === 409, "status: " + response.status));
+%}
+
+
+### 15. 발급 - 실패: 같은 구매자, 다른 Request-ID (409 COUPON_003, 이미 발급)
+POST {{host}}/api/v1/coupons/{{activePolicyId}}/issue
+Authorization: Bearer {{buyerToken}}
+Request-ID: coupon-req-0002
+
+> {%
+    client.test("409 Conflict(이미 발급)", () => client.assert(response.status === 409, "status: " + response.status));
+%}
+
+
+### 16. 발급 - 실패: 시작 전(SCHEDULED) 정책 (409 COUPON_001)
+POST {{host}}/api/v1/coupons/{{scheduledPolicyId}}/issue
+Authorization: Bearer {{buyerToken}}
+Request-ID: coupon-req-0003
+
+> {%
+    client.test("409 Conflict(발급 불가 상태)", () => client.assert(response.status === 409, "status: " + response.status));
+%}
+
+
+### 17. 발급 - 성공: 잔여 1장 정책의 마지막 한 장, 구매자01 (201)
+POST {{host}}/api/v1/coupons/{{lastOnePolicyId}}/issue
+Authorization: Bearer {{buyerToken}}
+Request-ID: coupon-req-0004
+
+> {%
+    client.test("201 Created", () => client.assert(response.status === 201, "status: " + response.status));
+%}
+
+
+### 18. 발급 - 실패: 수량 소진, 구매자02 (409 COUPON_002)
+POST {{host}}/api/v1/coupons/{{lastOnePolicyId}}/issue
+Authorization: Bearer {{buyer2Token}}
+Request-ID: coupon-req-0005
+
+> {%
+    client.test("409 Conflict(수량 소진)", () => client.assert(response.status === 409, "status: " + response.status));
+%}
+
+
+### 19. 발급 - 실패: 미인증 (401)
+POST {{host}}/api/v1/coupons/{{activePolicyId}}/issue
+Request-ID: coupon-req-0006
+
+> {%
+    client.test("401 Unauthorized", () => client.assert(response.status === 401, "status: " + response.status));
+%}
+
+
+### 20. 발급 - 실패: 존재하지 않는 정책 (404)
+POST {{host}}/api/v1/coupons/999999/issue
+Authorization: Bearer {{buyerToken}}
+Request-ID: coupon-req-0007
+
+> {%
+    client.test("404 Not Found", () => client.assert(response.status === 404, "status: " + response.status));
+%}
