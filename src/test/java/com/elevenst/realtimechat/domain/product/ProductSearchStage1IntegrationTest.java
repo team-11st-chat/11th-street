@@ -17,6 +17,7 @@ import com.jayway.jsonpath.JsonPath;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -63,6 +64,13 @@ class ProductSearchStage1IntegrationTest {
 
         Category root = categoryRepository.save(Category.createRoot("Digital", 1));
         category = categoryRepository.save(Category.createChild(root, "Audio", 1));
+    }
+
+    @AfterEach
+    void tearDown() {
+        searchHistoryRepository.deleteAll();
+        productRepository.deleteAll();
+        categoryRepository.deleteAll();
     }
 
     @Test
