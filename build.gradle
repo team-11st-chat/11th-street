@@ -69,9 +69,9 @@ tasks.named('test') {
     description = 'Runs unit tests. Integration tests are executed by the integrationTest task.'
     group = 'verification'
 
-    useJUnitPlatform()
-    exclude '**/*IntegrationTest.class'
-    exclude '**/*IT.class'
+    useJUnitPlatform {
+        excludeTags 'integration'
+    }
 
     println ">>> [test] PERFORMANCE_TEST System.getenv: [${performanceTestEnv}]"
     environment "PERFORMANCE_TEST", performanceTestEnv
@@ -84,9 +84,9 @@ tasks.register('integrationTest', Test) {
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath
 
-    useJUnitPlatform()
-    include '**/*IntegrationTest.class'
-    include '**/*IT.class'
+    useJUnitPlatform {
+        includeTags 'integration'
+    }
 
     systemProperty 'spring.profiles.active', 'test'
     shouldRunAfter tasks.named('test')

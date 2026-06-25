@@ -21,6 +21,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.redisson.api.RedissonClient;
 import org.slf4j.Logger;
@@ -46,6 +47,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
  */
 @SpringBootTest
 @ActiveProfiles("test")
+@Tag("integration")
 class CouponIssueConcurrencyTest {
 
     private static final Logger log = LoggerFactory.getLogger(CouponIssueConcurrencyTest.class);

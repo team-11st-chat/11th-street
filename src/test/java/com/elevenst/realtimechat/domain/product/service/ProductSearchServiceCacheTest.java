@@ -15,6 +15,7 @@ import com.github.benmanes.caffeine.cache.Policy;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -25,6 +26,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @SpringBootTest(classes = {CacheConfig.class, ProductSearchService.class})
+@Tag("integration")
 class ProductSearchServiceCacheTest {
 
     @Autowired

@@ -8,6 +8,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.redisson.Redisson;
 import org.redisson.api.RedissonClient;
@@ -27,6 +28,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
  * <p>Redis 가 없는 환경에서는 전체 테스트를 건너뛴다(assumeTrue). 로컬에서는 {@code docker compose up} 으로
  * Redis 를 띄운 뒤 실행한다.
  */
+@Tag("integration")
 class RedisRefreshTokenStoreIntegrationTest {
 
     private static final Long MEMBER_ID = 987_654_321L;
