@@ -3,21 +3,20 @@ package com.elevenst.realtimechat.domain.product.service;
 import com.elevenst.realtimechat.domain.product.dto.ProductCreateRequest;
 import com.elevenst.realtimechat.domain.product.dto.ProductPageResponse;
 import com.elevenst.realtimechat.domain.product.dto.ProductResponse;
-import com.elevenst.realtimechat.domain.product.dto.ProductSummaryResponse;
 import com.elevenst.realtimechat.domain.product.dto.ProductUpdateRequest;
 import com.elevenst.realtimechat.domain.product.entity.Category;
 import com.elevenst.realtimechat.domain.product.entity.Product;
-import com.elevenst.realtimechat.domain.product.entity.SaleStatus;
 import com.elevenst.realtimechat.domain.product.exception.ProductErrorCode;
 import com.elevenst.realtimechat.domain.product.exception.ProductException;
 import com.elevenst.realtimechat.domain.product.repository.CategoryRepository;
 import com.elevenst.realtimechat.domain.product.repository.ProductRepository;
 import com.elevenst.realtimechat.domain.search.service.SearchKeywordRecordCommand;
 import com.elevenst.realtimechat.domain.search.service.SearchKeywordRecorder;
+import com.elevenst.realtimechat.global.config.CacheConfig;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.PageRequest;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,7 +28,9 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final SearchKeywordRecorder searchKeywordRecorder;
+    private final ProductSearchService productSearchService;
 
+    @CacheEvict(cacheNames = CacheConfig.PRODUCT_SEARCH_CACHE, allEntries = true)
     @Transactional
     public ProductResponse createProduct(Long sellerId, ProductCreateRequest request) {
         Category category = getCategory(request.categoryId());
@@ -37,6 +38,7 @@ public class ProductService {
         return ProductResponse.from(productRepository.save(product));
     }
 
+    @CacheEvict(cacheNames = CacheConfig.PRODUCT_SEARCH_CACHE, allEntries = true)
     @Transactional
     public ProductResponse updateProduct(Long sellerId, Long productId, ProductUpdateRequest request) {
         Product product = productRepository.findById(productId)
@@ -67,9 +69,18 @@ public class ProductService {
             recordSearchKeyword(keyword, categoryId, guestId);
         }
 
-        return ProductPageResponse.from(productRepository
-                .searchProducts(normalizedKeyword, categoryId, SaleStatus.SUSPENDED, SaleStatus.SOLD_OUT, PageRequest.of(page, size))
-                .map(ProductSummaryResponse::from));
+        return productSearchService.searchProducts(normalizedKeyword, categoryId, page, size);
+    }
+
+    @Transactional
+    public ProductPageResponse searchProductsV2(String keyword, Long categoryId, int page, int size, String guestId) {
+        validatePageRequest(page, size);
+        String normalizedKeyword = normalizeKeyword(keyword);
+        if (normalizedKeyword != null) {
+            recordSearchKeyword(keyword, categoryId, guestId);
+        }
+
+        return productSearchService.searchProductsWithCache(normalizedKeyword, categoryId, page, size);
     }
 
     private Product getProductEntity(Long productId) {
