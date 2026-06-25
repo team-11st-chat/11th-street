@@ -5,6 +5,10 @@ import com.elevenst.realtimechat.domain.product.dto.ProductPageResponse;
 import com.elevenst.realtimechat.domain.product.dto.ProductResponse;
 import com.elevenst.realtimechat.domain.product.dto.ProductUpdateRequest;
 import com.elevenst.realtimechat.domain.product.service.ProductService;
+<<<<<<< feature/search-cache-validation
+=======
+import com.elevenst.realtimechat.global.security.AuthenticatedMember;
+>>>>>>> develop
 import com.elevenst.realtimechat.global.response.ApiResponse;
 import com.elevenst.realtimechat.global.security.AuthenticatedMember;
 import jakarta.validation.Valid;
@@ -21,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 @RestController
 @RequiredArgsConstructor
@@ -67,6 +72,7 @@ public class ProductController {
     public ApiResponse<ProductResponse> updateProduct(
             @AuthenticationPrincipal AuthenticatedMember member,
             @PathVariable Long productId,
+            @AuthenticationPrincipal AuthenticatedMember member,
             @Valid @RequestBody ProductUpdateRequest request
     ) {
         return ApiResponse.success(

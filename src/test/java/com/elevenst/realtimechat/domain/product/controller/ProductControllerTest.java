@@ -33,6 +33,11 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.method.support.HandlerMethodArgumentResolver;
+import org.springframework.core.MethodParameter;
+import org.springframework.web.bind.support.WebDataBinderFactory;
+import org.springframework.web.context.request.NativeWebRequest;
+import org.springframework.web.method.support.ModelAndViewContainer;
 
 class ProductControllerTest {
 
@@ -46,8 +51,22 @@ class ProductControllerTest {
 
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new ProductController(productService))
+<<<<<<< feature/search-cache-validation
                 .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
+=======
+>>>>>>> develop
                 .setControllerAdvice(new GlobalExceptionHandler())
+                .setCustomArgumentResolvers(new HandlerMethodArgumentResolver() {
+                    @Override
+                    public boolean supportsParameter(MethodParameter parameter) {
+                        return parameter.getParameterType().equals(AuthenticatedMember.class);
+                    }
+
+                    @Override
+                    public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer mavContainer, NativeWebRequest webRequest, WebDataBinderFactory binderFactory) {
+                        return new AuthenticatedMember(1L, MemberRole.SELLER);
+                    }
+                })
                 .build();
     }
 
