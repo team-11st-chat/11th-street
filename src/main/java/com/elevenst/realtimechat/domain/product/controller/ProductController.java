@@ -5,11 +5,12 @@ import com.elevenst.realtimechat.domain.product.dto.ProductPageResponse;
 import com.elevenst.realtimechat.domain.product.dto.ProductResponse;
 import com.elevenst.realtimechat.domain.product.dto.ProductUpdateRequest;
 import com.elevenst.realtimechat.domain.product.service.ProductService;
-import com.elevenst.realtimechat.global.security.AuthenticatedMember;
 import com.elevenst.realtimechat.global.response.ApiResponse;
+import com.elevenst.realtimechat.global.security.AuthenticatedMember;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,7 +21,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 @RestController
 @RequiredArgsConstructor
@@ -65,8 +65,8 @@ public class ProductController {
 
     @PatchMapping("/{productId}")
     public ApiResponse<ProductResponse> updateProduct(
-            @PathVariable Long productId,
             @AuthenticationPrincipal AuthenticatedMember member,
+            @PathVariable Long productId,
             @Valid @RequestBody ProductUpdateRequest request
     ) {
         return ApiResponse.success(

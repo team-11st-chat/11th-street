@@ -4,11 +4,13 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.elevenst.realtimechat.domain.member.entity.MemberRole;
 import com.elevenst.realtimechat.domain.product.dto.ProductCreateRequest;
 import com.elevenst.realtimechat.domain.product.dto.ProductResponse;
 import com.elevenst.realtimechat.domain.product.dto.ProductUpdateRequest;
@@ -16,13 +18,18 @@ import com.elevenst.realtimechat.domain.product.entity.SaleStatus;
 import com.elevenst.realtimechat.domain.product.exception.ProductErrorCode;
 import com.elevenst.realtimechat.domain.product.exception.ProductException;
 import com.elevenst.realtimechat.domain.product.service.ProductService;
-import com.elevenst.realtimechat.domain.member.entity.MemberRole;
-import com.elevenst.realtimechat.global.security.AuthenticatedMember;
 import com.elevenst.realtimechat.global.exception.GlobalExceptionHandler;
+import com.elevenst.realtimechat.global.security.AuthenticatedMember;
 import java.math.BigDecimal;
+import java.util.List;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
@@ -58,12 +65,18 @@ class ProductControllerTest {
                 .build();
     }
 
+    @AfterEach
+    void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
+    }
+
     @Test
     void createProduct_returnsCreatedProduct() throws Exception {
         when(productService.createProduct(eq(1L), any(ProductCreateRequest.class)))
                 .thenReturn(new ProductResponse(1001L, 1L, 11L, "무선 이어폰", new BigDecimal("89000"), 500, SaleStatus.ON_SALE));
 
         mockMvc.perform(post("/api/v1/products")
+                        .with(authentication(sellerAuthentication()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -85,6 +98,7 @@ class ProductControllerTest {
                 .thenReturn(new ProductResponse(1001L, 1L, 11L, "무선 이어폰 Pro", new BigDecimal("99000"), 300, SaleStatus.ON_SALE));
 
         mockMvc.perform(patch("/api/v1/products/{productId}", 1001L)
+                        .with(authentication(sellerAuthentication()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -134,6 +148,7 @@ class ProductControllerTest {
                 .thenThrow(new ProductException(ProductErrorCode.PRODUCT_NOT_FOUND));
 
         mockMvc.perform(patch("/api/v1/products/{productId}", 999L)
+                        .with(authentication(sellerAuthentication()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -154,5 +169,15 @@ class ProductControllerTest {
                                 }
                                 """))
                 .andExpect(status().isBadRequest());
+    }
+
+    private Authentication sellerAuthentication() {
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                new AuthenticatedMember(1L, MemberRole.SELLER),
+                null,
+                List.of(new SimpleGrantedAuthority("ROLE_SELLER"))
+        );
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        return authentication;
     }
 }

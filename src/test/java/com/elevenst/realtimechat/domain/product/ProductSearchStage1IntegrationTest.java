@@ -1,5 +1,6 @@
 package com.elevenst.realtimechat.domain.product;
 
+import static com.elevenst.realtimechat.global.config.CacheConfig.POPULAR_KEYWORDS_CACHE;
 import static com.elevenst.realtimechat.global.config.CacheConfig.PRODUCT_SEARCH_CACHE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -73,7 +74,7 @@ class ProductSearchStage1IntegrationTest {
                 .defaultRequest(get("/").with(authentication(testAuthentication())))
                 .build();
 
-        clearProductSearchCache();
+        clearSearchCaches();
         searchHistoryRepository.deleteAll();
         productRepository.deleteAll();
         categoryRepository.deleteAll();
@@ -84,7 +85,7 @@ class ProductSearchStage1IntegrationTest {
 
     @AfterEach
     void tearDown() {
-        clearProductSearchCache();
+        clearSearchCaches();
         searchHistoryRepository.deleteAll();
         productRepository.deleteAll();
         categoryRepository.deleteAll();
@@ -184,6 +185,7 @@ class ProductSearchStage1IntegrationTest {
 
     private Long createProduct(String name, int price, int stockQuantity) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/v1/products")
+                        .with(authentication(testAuthentication()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -202,6 +204,7 @@ class ProductSearchStage1IntegrationTest {
 
     private void suspendProduct(Long productId) throws Exception {
         mockMvc.perform(patch("/api/v1/products/{productId}", productId)
+                        .with(authentication(testAuthentication()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -253,8 +256,13 @@ class ProductSearchStage1IntegrationTest {
         return keywordCounts;
     }
 
-    private void clearProductSearchCache() {
-        Cache cache = cacheManager.getCache(PRODUCT_SEARCH_CACHE);
+    private void clearSearchCaches() {
+        clearCache(PRODUCT_SEARCH_CACHE);
+        clearCache(POPULAR_KEYWORDS_CACHE);
+    }
+
+    private void clearCache(String cacheName) {
+        Cache cache = cacheManager.getCache(cacheName);
         if (cache != null) {
             cache.clear();
         }
@@ -264,7 +272,7 @@ class ProductSearchStage1IntegrationTest {
         return new UsernamePasswordAuthenticationToken(
                 new AuthenticatedMember(1L, MemberRole.SELLER),
                 null,
-                List.of()
+                List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_SELLER"))
         );
     }
 

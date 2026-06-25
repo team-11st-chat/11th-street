@@ -49,6 +49,8 @@ public class SecurityConfig {
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/refresh",
                                 "/api/v1/auth/logout").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/products").hasRole("SELLER")
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/products/*").hasRole("SELLER")
                         .requestMatchers("/ws").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(handling -> handling

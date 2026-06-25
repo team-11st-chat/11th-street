@@ -1,7 +1,7 @@
 package com.elevenst.realtimechat.domain.search.controller;
 
 import com.elevenst.realtimechat.domain.search.dto.PopularKeywordResponse;
-import com.elevenst.realtimechat.domain.search.service.SearchService;
+import com.elevenst.realtimechat.domain.search.service.SearchKeywordService;
 import com.elevenst.realtimechat.global.response.ApiResponse;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -14,10 +14,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1")
 public class SearchController {
 
-    private final SearchService searchService;
+    private final SearchKeywordService searchKeywordService;
 
     @GetMapping("/popular-keywords")
     public ApiResponse<List<PopularKeywordResponse>> getPopularKeywords() {
-        return ApiResponse.success("Popular keywords retrieved successfully.", searchService.getPopularKeywords());
+        return ApiResponse.success("Popular keywords retrieved successfully.", searchKeywordService.getPopularKeywords());
     }
 }
