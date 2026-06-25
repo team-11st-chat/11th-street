@@ -2,19 +2,23 @@ package com.elevenst.realtimechat.member.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.elevenst.realtimechat.domain.member.service.MemberService;
 import com.elevenst.realtimechat.global.exception.BusinessException;
-import com.elevenst.realtimechat.member.dto.MemberCreateRequest;
-import com.elevenst.realtimechat.member.exception.MemberErrorCode;
+import com.elevenst.realtimechat.domain.member.dto.MemberCreateRequest;
+import com.elevenst.realtimechat.domain.member.exception.MemberErrorCode;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
-import com.elevenst.realtimechat.member.repository.MemberRepository;
+import com.elevenst.realtimechat.domain.member.repository.MemberRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.redisson.api.RedissonClient;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +27,12 @@ import org.springframework.test.context.ActiveProfiles;
 @SpringBootTest
 @ActiveProfiles("test")
 class MemberServiceConcurrencyTest {
+
+    @MockitoBean
+    private RedissonClient redissonClient;
+
+    @MockitoBean
+    private StringRedisTemplate stringRedisTemplate;
 
     private static final Logger log = LoggerFactory.getLogger(MemberServiceConcurrencyTest.class);
 

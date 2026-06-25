@@ -26,7 +26,12 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.POST, "/api/v1/members", "/api/v1/auth/login").permitAll()
+                        // refresh/logout 은 Refresh Token 쿠키·Access Token 을 직접 검증하므로 인증 필터(이슈 #23) 도입 전까지 permitAll 로 둔다.
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/v1/members",
+                                "/api/v1/auth/login",
+                                "/api/v1/auth/refresh",
+                                "/api/v1/auth/logout").permitAll()
                         .anyRequest().authenticated())
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable);

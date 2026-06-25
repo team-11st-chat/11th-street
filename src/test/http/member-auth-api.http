@@ -139,10 +139,39 @@ Content-Type: application/json
 %}
 
 
+### 9. 로그아웃 - 성공 (200 OK, refreshToken 쿠키 만료 + accessToken jti 블랙리스트 등록)  [5번 로그인 후]
+### refreshToken 쿠키는 IntelliJ HTTP Client 쿠키 저장소가 자동 첨부하고,
+### accessToken 은 Authorization 헤더로 직접 전달합니다.
+# @name logout
+POST {{host}}/api/v1/auth/logout
+Authorization: Bearer {{accessToken}}
+
+> {%
+    client.test("200 OK", () => client.assert(response.status === 200, "status: " + response.status));
+    client.test("refreshToken 쿠키 만료(Max-Age=0)", () => {
+        const cookie = response.headers.valueOf("Set-Cookie");
+        client.assert(cookie !== null && cookie.indexOf("refreshToken=") >= 0, "Set-Cookie: " + cookie);
+        client.assert(cookie.indexOf("Max-Age=0") >= 0, "쿠키 만료(Max-Age=0) 누락: " + cookie);
+    });
+%}
+
+
+### 10. 로그아웃 - 토큰 없이 호출 (200 OK, 멱등 처리)
+### 쿠키·Authorization 이 없어도 무효화할 대상이 없어 조용히 성공합니다.
+POST {{host}}/api/v1/auth/logout
+
+> {%
+    client.test("200 OK", () => client.assert(response.status === 200, "status: " + response.status));
+%}
+
+
 ### -----------------------------------------------------------------
-### 참고: 5번 로그인 성공 후 발급된 accessToken 은 {{accessToken}} 으로 참조됩니다.
-### 현재 보호된(인증 필요) 엔드포인트가 없어 Bearer 인증 호출 예시는 주석으로만 둡니다.
-### 재발급(/auth/reissue)·로그아웃(/auth/logout)은 별도 이슈로 미구현 상태입니다.
+### 참고:
+### - 5번 로그인 성공 후 발급된 accessToken 은 {{accessToken}} 으로 참조됩니다.
+### - refreshToken 은 HttpOnly 쿠키로 발급되며, 같은 호스트의 이후 요청에 자동 첨부됩니다.
+### - 재발급(POST /api/v1/auth/refresh)도 #22 에서 구현되었으나 여기서는 로그아웃만 다룹니다.
+### - HTTP 인증 필터(#23)가 미구현이라, 로그아웃 후에도 기존 accessToken 으로의
+###   보호 엔드포인트 접근 거부는 아직 적용되지 않습니다.
 ### -----------------------------------------------------------------
 # GET {{host}}/api/v1/<protected-endpoint>
 # Authorization: Bearer {{accessToken}}

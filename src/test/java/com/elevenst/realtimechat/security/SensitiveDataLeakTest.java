@@ -2,12 +2,12 @@ package com.elevenst.realtimechat.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.elevenst.realtimechat.auth.dto.LoginRequest;
+import com.elevenst.realtimechat.domain.auth.dto.LoginRequest;
 import com.elevenst.realtimechat.global.security.JwtProperties;
 import com.elevenst.realtimechat.global.security.JwtTokenProvider;
-import com.elevenst.realtimechat.member.dto.MemberCreateRequest;
-import com.elevenst.realtimechat.member.entity.Member;
-import com.elevenst.realtimechat.member.entity.MemberRole;
+import com.elevenst.realtimechat.domain.member.dto.MemberCreateRequest;
+import com.elevenst.realtimechat.domain.member.entity.Member;
+import com.elevenst.realtimechat.domain.member.entity.MemberRole;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
@@ -51,8 +51,8 @@ class SensitiveDataLeakTest {
                 new JwtProperties("test-secret-key-that-is-long-enough-for-hs256-0123456789", 3600, 1209600, false));
 
         // when
-        String accessToken = provider.createAccessToken(1L, MemberRole.BUYER);
-        String refreshToken = provider.createRefreshToken(1L);
+        String accessToken = provider.createAccessToken(1L, MemberRole.BUYER).tokenValue();
+        String refreshToken = provider.createRefreshToken(1L).tokenValue();
 
         // then
         assertThat(accessToken).doesNotContain(RAW_PASSWORD);

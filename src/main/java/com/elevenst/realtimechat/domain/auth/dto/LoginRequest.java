@@ -1,4 +1,4 @@
-package com.elevenst.realtimechat.auth.dto;
+package com.elevenst.realtimechat.domain.auth.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
