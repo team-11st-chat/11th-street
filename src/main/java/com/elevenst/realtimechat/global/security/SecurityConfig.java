@@ -47,7 +47,7 @@ public class SecurityConfig {
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/refresh",
                                 "/api/v1/auth/logout").permitAll()
-                        // 보호 경로(기본 거부): 그 외 모든 요청은 검증된 Access Token 인증을 요구한다.
+                        .requestMatchers("/ws").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(handling -> handling
                         .authenticationEntryPoint(new RestAuthenticationEntryPoint(handlerExceptionResolver)))
