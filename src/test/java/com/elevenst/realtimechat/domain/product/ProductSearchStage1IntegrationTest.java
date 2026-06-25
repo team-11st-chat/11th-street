@@ -1,5 +1,6 @@
 package com.elevenst.realtimechat.domain.product;
 
+import static com.elevenst.realtimechat.global.config.CacheConfig.POPULAR_KEYWORDS_CACHE;
 import static com.elevenst.realtimechat.global.config.CacheConfig.PRODUCT_SEARCH_CACHE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -8,12 +9,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.elevenst.realtimechat.domain.member.entity.MemberRole;
 import com.elevenst.realtimechat.domain.product.entity.Category;
 import com.elevenst.realtimechat.domain.product.repository.CategoryRepository;
 import com.elevenst.realtimechat.domain.product.repository.ProductRepository;
 import com.elevenst.realtimechat.domain.search.repository.SearchHistoryRepository;
 import com.elevenst.realtimechat.domain.search.service.SearchKeywordRecordCommand;
 import com.elevenst.realtimechat.domain.search.service.SearchKeywordRecorder;
+import com.elevenst.realtimechat.global.security.AuthenticatedMember;
 import com.jayway.jsonpath.JsonPath;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,6 +29,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -64,7 +70,7 @@ class ProductSearchStage1IntegrationTest {
     void setUp() {
         mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
 
-        clearProductSearchCache();
+        clearSearchCaches();
         searchHistoryRepository.deleteAll();
         productRepository.deleteAll();
         categoryRepository.deleteAll();
@@ -75,7 +81,7 @@ class ProductSearchStage1IntegrationTest {
 
     @AfterEach
     void tearDown() {
-        clearProductSearchCache();
+        clearSearchCaches();
         searchHistoryRepository.deleteAll();
         productRepository.deleteAll();
         categoryRepository.deleteAll();
@@ -174,32 +180,43 @@ class ProductSearchStage1IntegrationTest {
     }
 
     private Long createProduct(String name, int price, int stockQuantity) throws Exception {
-        MvcResult result = mockMvc.perform(post("/api/v1/products")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "name": "%s",
-                                  "categoryId": %d,
-                                  "price": %d,
-                                  "stockQuantity": %d
-                                }
-                                """.formatted(name, category.getId(), price, stockQuantity)))
-                .andExpect(status().isCreated())
-                .andReturn();
+        MvcResult result;
+        authenticateSeller();
+        try {
+            result = mockMvc.perform(post("/api/v1/products")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {
+                                      "name": "%s",
+                                      "categoryId": %d,
+                                      "price": %d,
+                                      "stockQuantity": %d
+                                    }
+                                    """.formatted(name, category.getId(), price, stockQuantity)))
+                    .andExpect(status().isCreated())
+                    .andReturn();
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
 
         Number productId = JsonPath.read(result.getResponse().getContentAsString(), "$.data.id");
         return productId.longValue();
     }
 
     private void suspendProduct(Long productId) throws Exception {
-        mockMvc.perform(patch("/api/v1/products/{productId}", productId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "saleStatus": "SUSPENDED"
-                                }
-                                """))
-                .andExpect(status().isOk());
+        authenticateSeller();
+        try {
+            mockMvc.perform(patch("/api/v1/products/{productId}", productId)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {
+                                      "saleStatus": "SUSPENDED"
+                                    }
+                                    """))
+                    .andExpect(status().isOk());
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
     }
 
     private List<Long> getProductSearchIds(String keyword, String guestId) throws Exception {
@@ -244,11 +261,24 @@ class ProductSearchStage1IntegrationTest {
         return keywordCounts;
     }
 
-    private void clearProductSearchCache() {
-        Cache cache = cacheManager.getCache(PRODUCT_SEARCH_CACHE);
+    private void clearSearchCaches() {
+        clearCache(PRODUCT_SEARCH_CACHE);
+        clearCache(POPULAR_KEYWORDS_CACHE);
+    }
+
+    private void clearCache(String cacheName) {
+        Cache cache = cacheManager.getCache(cacheName);
         if (cache != null) {
             cache.clear();
         }
+    }
+
+    private void authenticateSeller() {
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+                new AuthenticatedMember(1L, MemberRole.SELLER),
+                null,
+                List.of(new SimpleGrantedAuthority("ROLE_SELLER"))
+        ));
     }
 
     private record KeywordCount(String keyword, long searchCount) {

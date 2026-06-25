@@ -5,11 +5,12 @@ import com.elevenst.realtimechat.domain.product.dto.ProductPageResponse;
 import com.elevenst.realtimechat.domain.product.dto.ProductResponse;
 import com.elevenst.realtimechat.domain.product.dto.ProductUpdateRequest;
 import com.elevenst.realtimechat.domain.product.service.ProductService;
-import com.elevenst.realtimechat.domain.product.support.FakeSellerStub;
 import com.elevenst.realtimechat.global.response.ApiResponse;
+import com.elevenst.realtimechat.global.security.AuthenticatedMember;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,7 +28,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class ProductController {
 
     private final ProductService productService;
-    private final FakeSellerStub fakeSellerStub;
 
     @GetMapping
     public ApiResponse<ProductPageResponse> searchProducts(
@@ -53,21 +53,25 @@ public class ProductController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<ProductResponse> createProduct(@Valid @RequestBody ProductCreateRequest request) {
+    public ApiResponse<ProductResponse> createProduct(
+            @AuthenticationPrincipal AuthenticatedMember member,
+            @Valid @RequestBody ProductCreateRequest request
+    ) {
         return ApiResponse.success(
                 "상품이 등록되었습니다.",
-                productService.createProduct(fakeSellerStub.getSellerId(), request)
+                productService.createProduct(member.memberId(), request)
         );
     }
 
     @PatchMapping("/{productId}")
     public ApiResponse<ProductResponse> updateProduct(
+            @AuthenticationPrincipal AuthenticatedMember member,
             @PathVariable Long productId,
             @Valid @RequestBody ProductUpdateRequest request
     ) {
         return ApiResponse.success(
                 "상품이 수정되었습니다.",
-                productService.updateProduct(fakeSellerStub.getSellerId(), productId, request)
+                productService.updateProduct(member.memberId(), productId, request)
         );
     }
 }

@@ -3,10 +3,12 @@ package com.elevenst.realtimechat.domain.search.service;
 import com.elevenst.realtimechat.domain.search.dto.PopularKeywordResponse;
 import com.elevenst.realtimechat.domain.search.entity.SearchHistory;
 import com.elevenst.realtimechat.domain.search.repository.SearchHistoryRepository;
+import com.elevenst.realtimechat.global.config.CacheConfig;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -36,6 +38,10 @@ public class SearchService implements SearchKeywordRecorder {
         ));
     }
 
+    @Cacheable(
+            cacheNames = CacheConfig.POPULAR_KEYWORDS_CACHE,
+            key = "T(com.elevenst.realtimechat.global.config.CacheConfig).POPULAR_KEYWORDS_KEY"
+    )
     @Transactional(readOnly = true)
     public List<PopularKeywordResponse> getPopularKeywords() {
         LocalDateTime from = LocalDateTime.now().minusHours(POPULAR_KEYWORD_WINDOW_HOURS);
