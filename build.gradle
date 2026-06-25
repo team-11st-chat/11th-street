@@ -59,9 +59,14 @@ dependencies {
 tasks.named('test') {
     description = 'Runs unit tests. Integration tests are executed by the integrationTest task.'
     group = 'verification'
+
     useJUnitPlatform()
     exclude '**/*IntegrationTest.class'
     exclude '**/*IT.class'
+
+    def perfEnv = System.getenv("PERFORMANCE_TEST")
+    println ">>> PERFORMANCE_TEST System.getenv: [${perfEnv}]"
+    environment "PERFORMANCE_TEST", (perfEnv ?: "false").trim()
 }
 
 tasks.register('integrationTest', Test) {
