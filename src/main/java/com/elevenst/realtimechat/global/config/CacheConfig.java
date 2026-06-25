@@ -10,6 +10,7 @@ import org.springframework.cache.support.SimpleCacheManager;
 import org.springframework.cache.transaction.TransactionAwareCacheManagerProxy;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
 @Configuration
 @EnableCaching(proxyTargetClass = true)
@@ -24,6 +25,7 @@ public class CacheConfig {
     public static final long PRODUCT_SEARCH_MAXIMUM_SIZE = 10_000L;
 
     @Bean
+    @Primary
     public CacheManager cacheManager() {
         SimpleCacheManager cacheManager = new SimpleCacheManager();
         cacheManager.setCaches(List.of(
