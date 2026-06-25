@@ -57,5 +57,28 @@ dependencies {
 }
 
 tasks.named('test') {
+    description = 'Runs unit tests. Integration tests are executed by the integrationTest task.'
+    group = 'verification'
     useJUnitPlatform()
+    exclude '**/*IntegrationTest.class'
+    exclude '**/*IT.class'
+}
+
+tasks.register('integrationTest', Test) {
+    description = 'Runs integration tests with the test profile.'
+    group = 'verification'
+
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+
+    useJUnitPlatform()
+    include '**/*IntegrationTest.class'
+    include '**/*IT.class'
+
+    systemProperty 'spring.profiles.active', 'test'
+    shouldRunAfter tasks.named('test')
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('integrationTest')
 }
