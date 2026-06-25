@@ -70,7 +70,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        MemberRole role = MemberRole.valueOf(claims.role());
+        MemberRole role;
+        try {
+            role = MemberRole.valueOf(claims.role());
+        } catch (IllegalArgumentException e) {
+            // 알 수 없는 role 클레임: 무효 토큰으로 보고 인증을 설정하지 않는다(진입점이 401 로 거부).
+            return;
+        }
         AuthenticatedMember principal = new AuthenticatedMember(claims.memberId(), role);
         UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                 principal, null, List.of(new SimpleGrantedAuthority("ROLE_" + role.name())));
