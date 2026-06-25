@@ -1,5 +1,6 @@
 package com.elevenst.realtimechat.domain.product;
 
+import static com.elevenst.realtimechat.global.config.CacheConfig.PRODUCT_SEARCH_CACHE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -22,6 +23,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -52,12 +55,16 @@ class ProductSearchStage1IntegrationTest {
     @Autowired
     private SearchKeywordRecorder searchKeywordRecorder;
 
+    @Autowired
+    private CacheManager cacheManager;
+
     private Category category;
 
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
 
+        clearProductSearchCache();
         searchHistoryRepository.deleteAll();
         productRepository.deleteAll();
         categoryRepository.deleteAll();
@@ -68,6 +75,7 @@ class ProductSearchStage1IntegrationTest {
 
     @AfterEach
     void tearDown() {
+        clearProductSearchCache();
         searchHistoryRepository.deleteAll();
         productRepository.deleteAll();
         categoryRepository.deleteAll();
@@ -122,6 +130,30 @@ class ProductSearchStage1IntegrationTest {
 
         assertThat(productIds).containsExactly(onSaleNew, onSaleOld, soldOut);
         assertThat(productIds).doesNotContain(suspended);
+    }
+
+    @Test
+    void productSearchV2_returnsSameResponseContractAsV1() throws Exception {
+        createProduct("Apple AirPods Pro", 329000, 15);
+        createProduct("Apple AirPods Max", 769000, 4);
+
+        Map<String, Object> v1Response = getProductSearchResponse("/api/v1/products", "airpods", "guest-v1");
+        Map<String, Object> v2Response = getProductSearchResponse("/api/v2/products", "airpods", "guest-v2");
+
+        assertThat(v2Response).isEqualTo(v1Response);
+    }
+
+    @Test
+    void productSearchV2_evictsCachedSearchWhenProductChanges() throws Exception {
+        createProduct("Galaxy Buds Pro", 199000, 10);
+
+        Map<String, Object> cachedData = getProductSearchData("/api/v2/products", "galaxy", "guest-cache");
+        assertThat(cachedData.get("totalElements")).isEqualTo(1);
+
+        createProduct("Galaxy Buds Live", 149000, 7);
+
+        Map<String, Object> refreshedData = getProductSearchData("/api/v2/products", "galaxy", "guest-cache");
+        assertThat(refreshedData.get("totalElements")).isEqualTo(2);
     }
 
     @Test
@@ -183,6 +215,21 @@ class ProductSearchStage1IntegrationTest {
                 .toList();
     }
 
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> getProductSearchData(String path, String keyword, String guestId) throws Exception {
+        return (Map<String, Object>) getProductSearchResponse(path, keyword, guestId).get("data");
+    }
+
+    private Map<String, Object> getProductSearchResponse(String path, String keyword, String guestId) throws Exception {
+        MvcResult result = mockMvc.perform(get(path)
+                        .param("keyword", keyword)
+                        .header(GUEST_ID_HEADER, guestId))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        return JsonPath.read(result.getResponse().getContentAsString(), "$");
+    }
+
     private List<KeywordCount> getPopularKeywordData() throws Exception {
         MvcResult result = mockMvc.perform(get("/api/v1/popular-keywords"))
                 .andExpect(status().isOk())
@@ -195,6 +242,13 @@ class ProductSearchStage1IntegrationTest {
                 ((Number) keyword.get("searchCount")).longValue()
         )));
         return keywordCounts;
+    }
+
+    private void clearProductSearchCache() {
+        Cache cache = cacheManager.getCache(PRODUCT_SEARCH_CACHE);
+        if (cache != null) {
+            cache.clear();
+        }
     }
 
     private record KeywordCount(String keyword, long searchCount) {

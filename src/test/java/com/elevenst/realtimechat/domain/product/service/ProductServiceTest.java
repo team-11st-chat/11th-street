@@ -10,7 +10,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.elevenst.realtimechat.domain.product.dto.ProductCreateRequest;
+import com.elevenst.realtimechat.domain.product.dto.ProductPageResponse;
 import com.elevenst.realtimechat.domain.product.dto.ProductResponse;
+import com.elevenst.realtimechat.domain.product.dto.ProductSummaryResponse;
 import com.elevenst.realtimechat.domain.product.dto.ProductUpdateRequest;
 import com.elevenst.realtimechat.domain.product.entity.Category;
 import com.elevenst.realtimechat.domain.product.entity.Product;
@@ -44,11 +46,14 @@ class ProductServiceTest {
     @Mock
     private SearchKeywordRecorder searchKeywordRecorder;
 
+    @Mock
+    private ProductSearchService productSearchService;
+
     private ProductService productService;
 
     @BeforeEach
     void setUp() {
-        productService = new ProductService(productRepository, categoryRepository, searchKeywordRecorder);
+        productService = new ProductService(productRepository, categoryRepository, searchKeywordRecorder, productSearchService);
     }
 
     @Test
@@ -150,10 +155,10 @@ class ProductServiceTest {
         Category category = Category.createChild(Category.createRoot("디지털·가전", 1), "이어폰", 1);
         Product product = Product.create(1L, category, "무선 이어폰", new BigDecimal("89000"), 500);
         Page<Product> productPage = new PageImpl<>(List.of(product), PageRequest.of(0, 10), 1);
+        ProductPageResponse expectedResponse = ProductPageResponse.from(productPage.map(ProductSummaryResponse::from));
 
-        when(productRepository.searchProducts(
-                eq("이어폰"), eq(11L), eq(SaleStatus.SUSPENDED), eq(SaleStatus.SOLD_OUT), any(PageRequest.class)
-        )).thenReturn(productPage);
+        when(productSearchService.searchProducts(eq("이어폰"), eq(11L), eq(0), eq(10)))
+                .thenReturn(expectedResponse);
 
         var response = productService.searchProducts("  이어폰  ", 11L, 0, 10, "guest_123");
 
@@ -170,11 +175,17 @@ class ProductServiceTest {
     }
 
     @Test
+    void searchProductsV2_throwsException_whenSizeExceedsLimit() {
+        assertThatThrownBy(() -> productService.searchProductsV2("이어폰", 11L, 0, 101, "guest_123"))
+                .isInstanceOf(ProductException.class)
+                .hasMessage("페이징 파라미터가 올바르지 않습니다.");
+    }
+
+    @Test
     void searchProducts_doesNotRecordKeyword_whenKeywordIsBlank() {
         Page<Product> emptyPage = new PageImpl<>(List.of());
-        when(productRepository.searchProducts(
-                isNull(), eq(11L), eq(SaleStatus.SUSPENDED), eq(SaleStatus.SOLD_OUT), any(PageRequest.class)
-        )).thenReturn(emptyPage);
+        when(productSearchService.searchProducts(isNull(), eq(11L), eq(0), eq(10)))
+                .thenReturn(ProductPageResponse.from(emptyPage.map(ProductSummaryResponse::from)));
 
         productService.searchProducts("   ", 11L, 0, 10, "guest_123");
 
@@ -186,10 +197,10 @@ class ProductServiceTest {
         Category category = Category.createChild(Category.createRoot("디지털·가전", 1), "이어폰", 1);
         Product product = Product.create(1L, category, "무선 이어폰", new BigDecimal("89000"), 500);
         Page<Product> productPage = new PageImpl<>(List.of(product), PageRequest.of(0, 10), 1);
+        ProductPageResponse expectedResponse = ProductPageResponse.from(productPage.map(ProductSummaryResponse::from));
 
-        when(productRepository.searchProducts(
-                eq("이어폰"), eq(11L), eq(SaleStatus.SUSPENDED), eq(SaleStatus.SOLD_OUT), any(PageRequest.class)
-        )).thenReturn(productPage);
+        when(productSearchService.searchProducts(eq("이어폰"), eq(11L), eq(0), eq(10)))
+                .thenReturn(expectedResponse);
         doThrow(new RuntimeException("Database error"))
                 .when(searchKeywordRecorder).record(any(SearchKeywordRecordCommand.class));
 
