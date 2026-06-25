@@ -10,10 +10,9 @@ permissions:
 
 jobs:
   verify:
-    name: Compile and Test
+    name: Unit and Integration Tests
     runs-on: ubuntu-latest
 
-    # 테스트에 필요한 Redis 컨테이너 띄우기
     services:
       redis:
         image: redis:8-alpine
@@ -25,6 +24,11 @@ jobs:
           --health-timeout 5s
           --health-retries 10
 
+    env:
+      SPRING_PROFILES_ACTIVE: test
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -33,7 +37,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21' # 자바 버전을 하나로 통일!
+          java-version: '21'
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -43,5 +47,11 @@ jobs:
           sed -i 's/\r$//' gradlew
           chmod +x gradlew
 
-      - name: Compile & Run Tests
-        run: ./gradlew build --no-daemon # 빌드와 테스트를 한 번에 수행
+      - name: Compile
+        run: ./gradlew classes testClasses --no-daemon
+
+      - name: Run unit tests
+        run: ./gradlew test --no-daemon
+
+      - name: Run integration tests
+        run: ./gradlew integrationTest --no-daemon

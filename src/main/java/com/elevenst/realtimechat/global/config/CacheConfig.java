@@ -29,15 +29,15 @@ public class CacheConfig {
     public CacheManager cacheManager() {
         SimpleCacheManager cacheManager = new SimpleCacheManager();
         cacheManager.setCaches(List.of(
-                new CaffeineCache(PRODUCT_SEARCH_CACHE, Caffeine.newBuilder()
-                        .expireAfterWrite(PRODUCT_SEARCH_TTL)
-                        .maximumSize(PRODUCT_SEARCH_MAXIMUM_SIZE)
-                        .recordStats()
-                        .build()),
-                new CaffeineCache(POPULAR_KEYWORDS_CACHE, Caffeine.newBuilder()
-                        .expireAfterWrite(POPULAR_KEYWORDS_TTL)
-                        .recordStats()
-                        .build())
+            new CaffeineCache(PRODUCT_SEARCH_CACHE, Caffeine.newBuilder()
+                .expireAfterWrite(PRODUCT_SEARCH_TTL)
+                .maximumSize(PRODUCT_SEARCH_MAXIMUM_SIZE)
+                .recordStats()
+                .build()),
+            new CaffeineCache(POPULAR_KEYWORDS_CACHE, Caffeine.newBuilder()
+                .expireAfterWrite(POPULAR_KEYWORDS_TTL)
+                .recordStats()
+                .build())
         ));
         cacheManager.initializeCaches();
         return new TransactionAwareCacheManagerProxy(cacheManager);

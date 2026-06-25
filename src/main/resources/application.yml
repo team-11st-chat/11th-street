@@ -33,7 +33,7 @@ management:
     web:
       base-path: /
       exposure:
-        include: health
+        include: health,metrics
       path-mapping:
         health: health
   endpoint:
@@ -45,6 +45,15 @@ management:
           include: readinessState,db,redis
         liveness:
           include: livenessState
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  level:
+    com.elevenst.realtimechat: ${APP_LOG_LEVEL:INFO}
+  pattern:
+    level: "%5p [requestId:%X{requestId}]"
 
 jwt:
   secret: ${JWT_SECRET}

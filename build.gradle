@@ -25,6 +25,7 @@ repositories {
 }
 
 dependencies {
+    // Spring Boot Starters
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
@@ -35,19 +36,24 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'org.springframework.boot:spring-boot-starter-flyway'
 
+    // Cache & Redis Client
     implementation 'com.github.ben-manes.caffeine:caffeine'
     implementation 'org.redisson:redisson-spring-boot-starter:4.6.1'
 
+    // JWT
     implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
     runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
 
+    // Lombok
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
 
+    // Database Driver & Migration
     runtimeOnly 'com.mysql:mysql-connector-j'
     runtimeOnly 'org.flywaydb:flyway-mysql'
 
+    // Testing
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
     testImplementation 'org.springframework.boot:spring-boot-test-autoconfigure'
@@ -56,9 +62,39 @@ dependencies {
     testRuntimeOnly 'com.h2database:h2'
 }
 
+// Shared performance-test flag for Gradle test tasks.
+def performanceTestEnv = (System.getenv("PERFORMANCE_TEST") ?: "false").trim()
+
 tasks.named('test') {
-    useJUnitPlatform()
-    def perfEnv = System.getenv("PERFORMANCE_TEST")
-    println ">>> PERFORMANCE_TEST System.getenv: [${perfEnv}]"
-    environment "PERFORMANCE_TEST", (perfEnv ?: "false").trim()
+    description = 'Runs unit tests. Integration tests are executed by the integrationTest task.'
+    group = 'verification'
+
+    useJUnitPlatform {
+        excludeTags 'integration'
+    }
+
+    println ">>> [test] PERFORMANCE_TEST System.getenv: [${performanceTestEnv}]"
+    environment "PERFORMANCE_TEST", performanceTestEnv
+}
+
+tasks.register('integrationTest', Test) {
+    description = 'Runs integration tests with the test profile.'
+    group = 'verification'
+
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+
+    useJUnitPlatform {
+        includeTags 'integration'
+    }
+
+    systemProperty 'spring.profiles.active', 'test'
+    shouldRunAfter tasks.named('test')
+
+    println ">>> [integrationTest] PERFORMANCE_TEST System.getenv: [${performanceTestEnv}]"
+    environment "PERFORMANCE_TEST", performanceTestEnv
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('integrationTest')
 }
