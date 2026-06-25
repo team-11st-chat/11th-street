@@ -184,43 +184,34 @@ class ProductSearchStage1IntegrationTest {
     }
 
     private Long createProduct(String name, int price, int stockQuantity) throws Exception {
-        MvcResult result;
-        authenticateSeller();
-        try {
-            result = mockMvc.perform(post("/api/v1/products")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content("""
-                                    {
-                                      "name": "%s",
-                                      "categoryId": %d,
-                                      "price": %d,
-                                      "stockQuantity": %d
-                                    }
-                                    """.formatted(name, category.getId(), price, stockQuantity)))
-                    .andExpect(status().isCreated())
-                    .andReturn();
-        } finally {
-            SecurityContextHolder.clearContext();
-        }
+        MvcResult result = mockMvc.perform(post("/api/v1/products")
+                        .with(authentication(testAuthentication()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "%s",
+                                  "categoryId": %d,
+                                  "price": %d,
+                                  "stockQuantity": %d
+                                }
+                                """.formatted(name, category.getId(), price, stockQuantity)))
+                .andExpect(status().isCreated())
+                .andReturn();
 
         Number productId = JsonPath.read(result.getResponse().getContentAsString(), "$.data.id");
         return productId.longValue();
     }
 
     private void suspendProduct(Long productId) throws Exception {
-        authenticateSeller();
-        try {
-            mockMvc.perform(patch("/api/v1/products/{productId}", productId)
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content("""
-                                    {
-                                      "saleStatus": "SUSPENDED"
-                                    }
-                                    """))
-                    .andExpect(status().isOk());
-        } finally {
-            SecurityContextHolder.clearContext();
-        }
+        mockMvc.perform(patch("/api/v1/products/{productId}", productId)
+                        .with(authentication(testAuthentication()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "saleStatus": "SUSPENDED"
+                                }
+                                """))
+                .andExpect(status().isOk());
     }
 
     private List<Long> getProductSearchIds(String keyword, String guestId) throws Exception {
@@ -281,7 +272,7 @@ class ProductSearchStage1IntegrationTest {
         return new UsernamePasswordAuthenticationToken(
                 new AuthenticatedMember(1L, MemberRole.SELLER),
                 null,
-                List.of()
+                List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_SELLER"))
         );
     }
 

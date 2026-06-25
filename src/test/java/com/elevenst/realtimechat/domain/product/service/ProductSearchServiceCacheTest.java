@@ -68,7 +68,7 @@ class ProductSearchServiceCacheTest {
 
         Cache cache = cacheManager.getCache(CacheConfig.PRODUCT_SEARCH_CACHE);
         assertThat(cache).isNotNull();
-        assertThat(cache.get(ProductSearchCacheKey.of("airpods", 11L, 0, 20))).isNotNull();
+        assertThat(cache.get("product_search:airpods:11:0:20")).isNotNull();
     }
 
     @Test

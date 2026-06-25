@@ -54,7 +54,7 @@ class ProductServiceCacheEvictTest {
     void updateProduct_evictsAllProductSearchCacheEntries() {
         Category category = Category.createChild(Category.createRoot("Digital", 1), "Audio", 1);
         Product product = Product.create(1L, category, "Galaxy Buds", new BigDecimal("199000"), 10);
-        ProductSearchCacheKey cacheKey = ProductSearchCacheKey.of("galaxy", null, 0, 20);
+        String cacheKey = "product_search:galaxy:null:0:20";
         Cache cache = productSearchCache();
 
         cache.put(cacheKey, "cached-response");
