@@ -12,15 +12,18 @@ import com.elevenst.realtimechat.domain.product.exception.ProductErrorCode;
 import com.elevenst.realtimechat.domain.product.exception.ProductException;
 import com.elevenst.realtimechat.domain.product.repository.CategoryRepository;
 import com.elevenst.realtimechat.domain.product.repository.ProductRepository;
+import com.elevenst.realtimechat.domain.search.service.SearchKeywordRecordCommand;
 import com.elevenst.realtimechat.domain.search.service.SearchKeywordRecorder;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ProductService {
 
     private final ProductRepository productRepository;
@@ -60,7 +63,9 @@ public class ProductService {
     public ProductPageResponse searchProducts(String keyword, Long categoryId, int page, int size, String guestId) {
         validatePageRequest(page, size);
         String normalizedKeyword = normalizeKeyword(keyword);
-        recordSearchKeyword(normalizedKeyword, guestId);
+        if (normalizedKeyword != null) {
+            recordSearchKeyword(keyword, categoryId, guestId);
+        }
 
         return ProductPageResponse.from(productRepository
                 .searchProducts(normalizedKeyword, categoryId, SaleStatus.SUSPENDED, SaleStatus.SOLD_OUT, PageRequest.of(page, size))
@@ -90,9 +95,11 @@ public class ProductService {
         return keyword.trim().toLowerCase(Locale.ROOT);
     }
 
-    private void recordSearchKeyword(String keyword, String guestId) {
-        if (keyword != null) {
-            searchKeywordRecorder.record(keyword, guestId);
+    private void recordSearchKeyword(String keyword, Long categoryId, String guestId) {
+        try {
+            searchKeywordRecorder.record(SearchKeywordRecordCommand.guest(keyword, guestId, categoryId));
+        } catch (Exception e) {
+            log.error("Failed to record search keyword: keyword={}, guestId={}, categoryId={}", keyword, guestId, categoryId, e);
         }
     }
 }

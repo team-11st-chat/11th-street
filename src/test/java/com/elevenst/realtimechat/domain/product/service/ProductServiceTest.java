@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -17,6 +18,7 @@ import com.elevenst.realtimechat.domain.product.entity.SaleStatus;
 import com.elevenst.realtimechat.domain.product.exception.ProductException;
 import com.elevenst.realtimechat.domain.product.repository.CategoryRepository;
 import com.elevenst.realtimechat.domain.product.repository.ProductRepository;
+import com.elevenst.realtimechat.domain.search.service.SearchKeywordRecordCommand;
 import com.elevenst.realtimechat.domain.search.service.SearchKeywordRecorder;
 import java.math.BigDecimal;
 import java.util.List;
@@ -157,7 +159,7 @@ class ProductServiceTest {
 
         assertThat(response.content()).hasSize(1);
         assertThat(response.content().get(0).name()).isEqualTo("무선 이어폰");
-        verify(searchKeywordRecorder).record("이어폰", "guest_123");
+        verify(searchKeywordRecorder).record(SearchKeywordRecordCommand.guest("  이어폰  ", "guest_123", 11L));
     }
 
     @Test
@@ -176,6 +178,24 @@ class ProductServiceTest {
 
         productService.searchProducts("   ", 11L, 0, 10, "guest_123");
 
-        verify(searchKeywordRecorder, org.mockito.Mockito.never()).record(any(), any());
+        verify(searchKeywordRecorder, org.mockito.Mockito.never()).record(any(SearchKeywordRecordCommand.class));
+    }
+
+    @Test
+    void searchProducts_succeeds_evenWhenSearchKeywordRecordFails() {
+        Category category = Category.createChild(Category.createRoot("디지털·가전", 1), "이어폰", 1);
+        Product product = Product.create(1L, category, "무선 이어폰", new BigDecimal("89000"), 500);
+        Page<Product> productPage = new PageImpl<>(List.of(product), PageRequest.of(0, 10), 1);
+
+        when(productRepository.searchProducts(
+                eq("이어폰"), eq(11L), eq(SaleStatus.SUSPENDED), eq(SaleStatus.SOLD_OUT), any(PageRequest.class)
+        )).thenReturn(productPage);
+        doThrow(new RuntimeException("Database error"))
+                .when(searchKeywordRecorder).record(any(SearchKeywordRecordCommand.class));
+
+        var response = productService.searchProducts("이어폰", 11L, 0, 10, "guest_123");
+
+        assertThat(response.content()).hasSize(1);
+        verify(searchKeywordRecorder).record(any(SearchKeywordRecordCommand.class));
     }
 }

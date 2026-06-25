@@ -12,5 +12,6 @@ out/
 AGENTS.md
 
 .env
+.env.*
 
 /wiki/
