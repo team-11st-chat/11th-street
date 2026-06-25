@@ -9,6 +9,7 @@ import com.elevenst.realtimechat.domain.member.repository.MemberRepository;
 import com.elevenst.realtimechat.global.exception.BusinessException;
 import com.elevenst.realtimechat.global.security.JwtTokenProvider;
 import com.elevenst.realtimechat.global.security.token.AccessTokenBlacklist;
+import com.elevenst.realtimechat.global.security.token.GeneratedToken;
 import com.elevenst.realtimechat.global.security.token.RefreshTokenStore;
 import com.elevenst.realtimechat.global.security.token.TokenClaims;
 import io.jsonwebtoken.JwtException;
@@ -47,8 +48,15 @@ public class AuthService {
     public AuthTokens refresh(String refreshToken) {
         TokenClaims claims = parseRefreshToken(refreshToken);
         Long memberId = claims.memberId();
+        String jti = claims.jti();
 
-        if (!refreshTokenStore.matches(memberId, claims.jti(), refreshToken)) {
+        if (!refreshTokenStore.matches(memberId, jti, refreshToken)) {
+            // Check if it's a concurrent retry within Grace Period
+            String[] graceTokens = refreshTokenStore.getGracePeriodTokens(memberId, jti);
+            if (graceTokens != null) {
+                return new AuthTokens(graceTokens[0], graceTokens[1], jwtTokenProvider.getAccessTokenValiditySeconds());
+            }
+
             // 서명·만료를 통과했으나 저장소에 없음 → 이미 Rotation/폐기된 토큰의 재사용으로 판단한다.
             refreshTokenStore.deleteAll(memberId);
             throw new BusinessException(AuthErrorCode.REFRESH_TOKEN_REUSED);
@@ -60,8 +68,13 @@ public class AuthService {
             throw new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN);
         }
 
-        refreshTokenStore.delete(memberId, claims.jti());
-        return issueTokens(memberId, member.getRole());
+        refreshTokenStore.delete(memberId, jti);
+        AuthTokens newTokens = issueTokens(memberId, member.getRole());
+        
+        // 동시성 중복 요청을 방어하기 위해 기존 jti를 키로 하여 새 토큰을 10초간 유예 저장한다.
+        refreshTokenStore.saveGracePeriodTokens(memberId, jti, newTokens.accessToken(), newTokens.refreshToken(), 10);
+        
+        return newTokens;
     }
 
     /**
@@ -74,15 +87,19 @@ public class AuthService {
     }
 
     private AuthTokens issueTokens(Long memberId, MemberRole role) {
-        String accessToken = jwtTokenProvider.createAccessToken(memberId, role);
-        String refreshToken = jwtTokenProvider.createRefreshToken(memberId);
-        TokenClaims refreshClaims = jwtTokenProvider.parse(refreshToken);
+        GeneratedToken generatedAccess = jwtTokenProvider.createAccessToken(memberId, role);
+        GeneratedToken generatedRefresh = jwtTokenProvider.createRefreshToken(memberId);
+        
         refreshTokenStore.save(
                 memberId,
-                refreshClaims.jti(),
-                refreshToken,
+                generatedRefresh.jti(),
+                generatedRefresh.tokenValue(),
                 jwtTokenProvider.getRefreshTokenValiditySeconds());
-        return new AuthTokens(accessToken, refreshToken, jwtTokenProvider.getAccessTokenValiditySeconds());
+                
+        return new AuthTokens(
+                generatedAccess.tokenValue(), 
+                generatedRefresh.tokenValue(), 
+                jwtTokenProvider.getAccessTokenValiditySeconds());
     }
 
     private TokenClaims parseRefreshToken(String refreshToken) {

@@ -8,7 +8,10 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.HexFormat;
 import java.util.Set;
+import java.time.Instant;
 import org.springframework.dao.DataAccessException;
+import org.springframework.data.redis.core.RedisOperations;
+import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
@@ -29,6 +32,7 @@ public class RedisRefreshTokenStore implements RefreshTokenStore {
 
     private static final String VALUE_KEY_PREFIX = "auth:refresh:";
     private static final String INDEX_KEY_PREFIX = "auth:refresh:index:";
+    private static final String GRACE_KEY_PREFIX = "auth:refresh:grace:";
 
     private final StringRedisTemplate redisTemplate;
 
@@ -39,10 +43,22 @@ public class RedisRefreshTokenStore implements RefreshTokenStore {
     @Override
     public void save(Long memberId, String jti, String rawToken, long ttlSeconds) {
         try {
+            long now = Instant.now().getEpochSecond();
+            long expireAt = now + ttlSeconds;
             Duration ttl = Duration.ofSeconds(ttlSeconds);
-            redisTemplate.opsForValue().set(valueKey(memberId, jti), hash(rawToken), ttl);
-            redisTemplate.opsForSet().add(indexKey(memberId), jti);
-            redisTemplate.expire(indexKey(memberId), ttl);
+
+            redisTemplate.executePipelined(new SessionCallback<Object>() {
+                @Override
+                @SuppressWarnings("unchecked")
+                public Object execute(RedisOperations operations) throws DataAccessException {
+                    RedisOperations<String, String> ops = (RedisOperations<String, String>) operations;
+                    ops.opsForValue().set(valueKey(memberId, jti), hash(rawToken), ttl);
+                    ops.opsForZSet().add(indexKey(memberId), jti, expireAt);
+                    ops.opsForZSet().removeRangeByScore(indexKey(memberId), 0, now);
+                    ops.expire(indexKey(memberId), ttl);
+                    return null;
+                }
+            });
         } catch (DataAccessException e) {
             throw new BusinessException(CommonErrorCode.SERVICE_UNAVAILABLE, e);
         }
@@ -66,8 +82,16 @@ public class RedisRefreshTokenStore implements RefreshTokenStore {
     @Override
     public void delete(Long memberId, String jti) {
         try {
-            redisTemplate.delete(valueKey(memberId, jti));
-            redisTemplate.opsForSet().remove(indexKey(memberId), jti);
+            redisTemplate.executePipelined(new SessionCallback<Object>() {
+                @Override
+                @SuppressWarnings("unchecked")
+                public Object execute(RedisOperations operations) throws DataAccessException {
+                    RedisOperations<String, String> ops = (RedisOperations<String, String>) operations;
+                    ops.delete(valueKey(memberId, jti));
+                    ops.opsForZSet().remove(indexKey(memberId), jti);
+                    return null;
+                }
+            });
         } catch (DataAccessException e) {
             throw new BusinessException(CommonErrorCode.SERVICE_UNAVAILABLE, e);
         }
@@ -76,11 +100,47 @@ public class RedisRefreshTokenStore implements RefreshTokenStore {
     @Override
     public void deleteAll(Long memberId) {
         try {
-            Set<String> jtis = redisTemplate.opsForSet().members(indexKey(memberId));
-            if (jtis != null) {
-                jtis.forEach(jti -> redisTemplate.delete(valueKey(memberId, jti)));
+            Set<String> jtis = redisTemplate.opsForZSet().range(indexKey(memberId), 0, -1);
+            redisTemplate.executePipelined(new SessionCallback<Object>() {
+                @Override
+                @SuppressWarnings("unchecked")
+                public Object execute(RedisOperations operations) throws DataAccessException {
+                    RedisOperations<String, String> ops = (RedisOperations<String, String>) operations;
+                    if (jtis != null) {
+                        jtis.forEach(jti -> ops.delete(valueKey(memberId, jti)));
+                    }
+                    ops.delete(indexKey(memberId));
+                    return null;
+                }
+            });
+        } catch (DataAccessException e) {
+            throw new BusinessException(CommonErrorCode.SERVICE_UNAVAILABLE, e);
+        }
+    }
+
+    @Override
+    public void saveGracePeriodTokens(Long memberId, String oldJti, String accessToken, String refreshToken, long ttlSeconds) {
+        try {
+            Duration ttl = Duration.ofSeconds(ttlSeconds);
+            String value = accessToken + "::" + refreshToken;
+            redisTemplate.opsForValue().set(graceKey(memberId, oldJti), value, ttl);
+        } catch (DataAccessException e) {
+            throw new BusinessException(CommonErrorCode.SERVICE_UNAVAILABLE, e);
+        }
+    }
+
+    @Override
+    public String[] getGracePeriodTokens(Long memberId, String oldJti) {
+        try {
+            String stored = redisTemplate.opsForValue().get(graceKey(memberId, oldJti));
+            if (stored == null) {
+                return null;
             }
-            redisTemplate.delete(indexKey(memberId));
+            String[] parts = stored.split("::");
+            if (parts.length == 2) {
+                return parts;
+            }
+            return null;
         } catch (DataAccessException e) {
             throw new BusinessException(CommonErrorCode.SERVICE_UNAVAILABLE, e);
         }
@@ -92,6 +152,10 @@ public class RedisRefreshTokenStore implements RefreshTokenStore {
 
     private String indexKey(Long memberId) {
         return INDEX_KEY_PREFIX + memberId;
+    }
+
+    private String graceKey(Long memberId, String oldJti) {
+        return GRACE_KEY_PREFIX + memberId + ":" + oldJti;
     }
 
     private String hash(String rawToken) {

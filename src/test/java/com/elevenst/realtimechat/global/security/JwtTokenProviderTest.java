@@ -22,7 +22,7 @@ class JwtTokenProviderTest {
     @Test
     void 토큰은_API_Spec에_따라_HS256_으로_서명한다() {
         // when
-        String token = provider.createAccessToken(42L, MemberRole.BUYER);
+        String token = provider.createAccessToken(42L, MemberRole.BUYER).tokenValue();
 
         // then
         assertThat(decodeSegment(token, 0)).contains("\"alg\":\"HS256\"");
@@ -31,7 +31,7 @@ class JwtTokenProviderTest {
     @Test
     void 액세스_토큰은_회원ID와_역할을_담는다() {
         // when
-        String token = provider.createAccessToken(42L, MemberRole.BUYER);
+        String token = provider.createAccessToken(42L, MemberRole.BUYER).tokenValue();
 
         // then
         String payload = decodeSegment(token, 1);
@@ -43,7 +43,7 @@ class JwtTokenProviderTest {
     @Test
     void 리프레시_토큰은_역할을_담지_않는다() {
         // when
-        String token = provider.createRefreshToken(42L);
+        String token = provider.createRefreshToken(42L).tokenValue();
 
         // then
         String payload = decodeSegment(token, 1);

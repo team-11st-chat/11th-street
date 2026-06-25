@@ -1,6 +1,7 @@
 package com.elevenst.realtimechat.global.security;
 
 import com.elevenst.realtimechat.domain.member.entity.MemberRole;
+import com.elevenst.realtimechat.global.security.token.GeneratedToken;
 import com.elevenst.realtimechat.global.security.token.TokenClaims;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -25,19 +26,23 @@ public class JwtTokenProvider {
         this.refreshTokenValiditySeconds = properties.refreshTokenValiditySeconds();
     }
 
-    public String createAccessToken(Long memberId, MemberRole role) {
-        return baseBuilder(memberId, accessTokenValiditySeconds)
+    public GeneratedToken createAccessToken(Long memberId, MemberRole role) {
+        String jti = UUID.randomUUID().toString();
+        String token = baseBuilder(memberId, jti, accessTokenValiditySeconds)
                 .claim("type", "access")
                 .claim("role", role.name())
                 .signWith(key, Jwts.SIG.HS256)
                 .compact();
+        return new GeneratedToken(token, jti);
     }
 
-    public String createRefreshToken(Long memberId) {
-        return baseBuilder(memberId, refreshTokenValiditySeconds)
+    public GeneratedToken createRefreshToken(Long memberId) {
+        String jti = UUID.randomUUID().toString();
+        String token = baseBuilder(memberId, jti, refreshTokenValiditySeconds)
                 .claim("type", "refresh")
                 .signWith(key, Jwts.SIG.HS256)
                 .compact();
+        return new GeneratedToken(token, jti);
     }
 
     public long getAccessTokenValiditySeconds() {
@@ -67,10 +72,10 @@ public class JwtTokenProvider {
                 claims.getExpiration().toInstant());
     }
 
-    private io.jsonwebtoken.JwtBuilder baseBuilder(Long memberId, long validitySeconds) {
+    private io.jsonwebtoken.JwtBuilder baseBuilder(Long memberId, String jti, long validitySeconds) {
         Instant now = Instant.now();
         return Jwts.builder()
-                .id(UUID.randomUUID().toString())
+                .id(jti)
                 .subject(String.valueOf(memberId))
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusSeconds(validitySeconds)));

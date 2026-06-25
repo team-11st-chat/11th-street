@@ -51,8 +51,8 @@ class SensitiveDataLeakTest {
                 new JwtProperties("test-secret-key-that-is-long-enough-for-hs256-0123456789", 3600, 1209600, false));
 
         // when
-        String accessToken = provider.createAccessToken(1L, MemberRole.BUYER);
-        String refreshToken = provider.createRefreshToken(1L);
+        String accessToken = provider.createAccessToken(1L, MemberRole.BUYER).tokenValue();
+        String refreshToken = provider.createRefreshToken(1L).tokenValue();
 
         // then
         assertThat(accessToken).doesNotContain(RAW_PASSWORD);

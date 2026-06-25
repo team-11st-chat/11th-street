@@ -28,4 +28,15 @@ public interface RefreshTokenStore {
      * 사용자의 모든 Refresh Token 을 폐기한다. (재사용 탐지 시 보안 조치)
      */
     void deleteAll(Long memberId);
+
+    /**
+     * 동시성 방어를 위해 짧은 시간 동안 새로 발급된 토큰 묶음을 임시 저장한다.
+     */
+    void saveGracePeriodTokens(Long memberId, String oldJti, String accessToken, String refreshToken, long ttlSeconds);
+
+    /**
+     * 짧은 시간 내에 중복 요청된 경우 임시 저장된 새 토큰 정보를 반환한다.
+     * 반환값은 길이 2의 배열(accessToken, refreshToken) 이다. 없을 경우 null 반환.
+     */
+    String[] getGracePeriodTokens(Long memberId, String oldJti);
 }
