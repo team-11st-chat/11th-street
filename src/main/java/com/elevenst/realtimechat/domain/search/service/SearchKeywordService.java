@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-public class SearchService implements SearchKeywordRecorder {
+public class SearchKeywordService implements SearchKeywordRecorder {
 
     private static final int DEFAULT_POPULAR_KEYWORD_LIMIT = 10;
     private static final long POPULAR_KEYWORD_WINDOW_HOURS = 1L;

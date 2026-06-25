@@ -15,13 +15,13 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class SearchServiceTest {
+class SearchKeywordServiceTest {
 
     @Mock
     private SearchHistoryRepository searchHistoryRepository;
 
     @InjectMocks
-    private SearchService searchService;
+    private SearchKeywordService searchKeywordService;
 
     @Test
     void record_savesNormalizedKeyword_whenKeywordIsValid() {
@@ -29,7 +29,7 @@ class SearchServiceTest {
         SearchKeywordRecordCommand command = SearchKeywordRecordCommand.guest("  MacBook Pro  ", "guest_123", 11L);
 
         // when
-        searchService.record(command);
+        searchKeywordService.record(command);
 
         // then
         ArgumentCaptor<SearchHistory> captor = ArgumentCaptor.forClass(SearchHistory.class);
@@ -48,7 +48,7 @@ class SearchServiceTest {
         SearchKeywordRecordCommand command = SearchKeywordRecordCommand.guest(longKeyword, "guest_123", 11L);
 
         // when
-        searchService.record(command);
+        searchKeywordService.record(command);
 
         // then
         ArgumentCaptor<SearchHistory> captor = ArgumentCaptor.forClass(SearchHistory.class);
@@ -65,7 +65,7 @@ class SearchServiceTest {
         SearchKeywordRecordCommand command = SearchKeywordRecordCommand.guest("   ", "guest_123", 11L);
 
         // when
-        searchService.record(command);
+        searchKeywordService.record(command);
 
         // then
         verify(searchHistoryRepository, never()).save(any());
@@ -77,7 +77,7 @@ class SearchServiceTest {
         SearchKeywordRecordCommand command = SearchKeywordRecordCommand.guest(null, "guest_123", 11L);
 
         // when
-        searchService.record(command);
+        searchKeywordService.record(command);
 
         // then
         verify(searchHistoryRepository, never()).save(any());

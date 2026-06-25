@@ -22,11 +22,11 @@ import org.springframework.cache.CacheManager;
 import org.springframework.data.domain.Pageable;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
-@SpringBootTest(classes = {CacheConfig.class, SearchService.class})
-class SearchServiceCacheTest {
+@SpringBootTest(classes = {CacheConfig.class, SearchKeywordService.class})
+class SearchKeywordServiceCacheTest {
 
     @Autowired
-    private SearchService searchService;
+    private SearchKeywordService searchKeywordService;
 
     @Autowired
     private CacheManager cacheManager;
@@ -60,8 +60,8 @@ class SearchServiceCacheTest {
         when(searchHistoryRepository.findPopularKeywords(any(), any(Pageable.class)))
                 .thenReturn(List.of(row));
 
-        searchService.getPopularKeywords();
-        searchService.getPopularKeywords();
+        searchKeywordService.getPopularKeywords();
+        searchKeywordService.getPopularKeywords();
 
         verify(searchHistoryRepository, times(1)).findPopularKeywords(any(), any(Pageable.class));
 
