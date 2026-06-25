@@ -7,11 +7,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.context.annotation.Primary;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 @Slf4j
 @Primary
 @Component
+@Profile("!test")
 @RequiredArgsConstructor
 public class RedissonLockManager implements LockManager {
 
