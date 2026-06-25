@@ -2,7 +2,7 @@ package com.elevenst.realtimechat.domain.order.controller;
 
 import com.elevenst.realtimechat.domain.order.dto.TimeSaleOrderRequest;
 import com.elevenst.realtimechat.domain.order.dto.TimeSaleOrderResponse;
-import com.elevenst.realtimechat.domain.order.service.TimeSaleOrderService;
+import com.elevenst.realtimechat.domain.order.service.TimeSaleOrderFacade;
 import com.elevenst.realtimechat.global.response.ApiResponse;
 import com.elevenst.realtimechat.global.security.AuthenticatedMember;
 import jakarta.validation.Valid;
@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/timesales")
 public class TimeSaleOrderController {
 
-    private final TimeSaleOrderService timeSaleOrderService;
+    private final TimeSaleOrderFacade timeSaleOrderFacade;
 
     @PostMapping("/{timeSaleId}/orders")
     @ResponseStatus(HttpStatus.CREATED)
@@ -34,7 +34,7 @@ public class TimeSaleOrderController {
     ) {
         return ApiResponse.success(
                 "주문이 성공적으로 처리되었습니다.",
-                timeSaleOrderService.orderTimeSale(member.memberId(), timeSaleId, requestId, request)
+                timeSaleOrderFacade.orderTimeSale(member.memberId(), timeSaleId, requestId, request)
         );
     }
 }
