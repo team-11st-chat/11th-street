@@ -127,4 +127,14 @@ public class Product extends BaseEntity {
             throw new ProductException(ProductErrorCode.INVALID_SALE_STATUS);
         }
     }
+
+    public void decreaseStock(int quantity) {
+        if (this.stockQuantity < quantity) {
+            throw new ProductException(ProductErrorCode.INVALID_STOCK_QUANTITY);
+        }
+        this.stockQuantity -= quantity;
+        if (this.stockQuantity == 0 && this.saleStatus != SaleStatus.SUSPENDED) {
+            this.saleStatus = SaleStatus.SOLD_OUT;
+        }
+    }
 }
