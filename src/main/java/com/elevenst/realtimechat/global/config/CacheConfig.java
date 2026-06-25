@@ -17,7 +17,7 @@ public class CacheConfig {
 
     public static final String PRODUCT_SEARCH_CACHE = "product_search";
     public static final String POPULAR_KEYWORDS_CACHE = "popular_keywords";
-    public static final String POPULAR_KEYWORDS_KEY = "popular_keywords";
+    public static final String POPULAR_KEYWORDS_KEY = "top";
 
     public static final Duration PRODUCT_SEARCH_TTL = Duration.ofMinutes(10);
     public static final Duration POPULAR_KEYWORDS_TTL = Duration.ofMinutes(1);
