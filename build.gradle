@@ -62,7 +62,7 @@ dependencies {
     testRuntimeOnly 'com.h2database:h2'
 }
 
-// 성능 테스트 환경변수 공통 추출
+// Shared performance-test flag for Gradle test tasks.
 def performanceTestEnv = (System.getenv("PERFORMANCE_TEST") ?: "false").trim()
 
 tasks.named('test') {
@@ -95,7 +95,6 @@ tasks.register('integrationTest', Test) {
     environment "PERFORMANCE_TEST", performanceTestEnv
 }
 
-// 괄호 누락 오류 수정 완료
 tasks.named('check') {
     dependsOn tasks.named('integrationTest')
 }
