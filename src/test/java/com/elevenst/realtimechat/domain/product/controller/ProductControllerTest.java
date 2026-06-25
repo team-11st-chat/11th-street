@@ -30,7 +30,6 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
@@ -51,10 +50,6 @@ class ProductControllerTest {
 
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new ProductController(productService))
-<<<<<<< feature/search-cache-validation
-                .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
-=======
->>>>>>> develop
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setCustomArgumentResolvers(new HandlerMethodArgumentResolver() {
                     @Override
