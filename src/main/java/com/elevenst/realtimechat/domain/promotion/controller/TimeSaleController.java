@@ -1,6 +1,6 @@
 package com.elevenst.realtimechat.domain.promotion.controller;
 
-import com.elevenst.realtimechat.domain.product.support.FakeSellerStub;
+import com.elevenst.realtimechat.global.security.AuthenticatedMember;
 import com.elevenst.realtimechat.domain.promotion.dto.TimeSaleCreateRequest;
 import com.elevenst.realtimechat.domain.promotion.dto.TimeSaleResponse;
 import com.elevenst.realtimechat.domain.promotion.dto.TimeSaleUpdateRequest;
@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 @RestController
 @RequiredArgsConstructor
@@ -28,25 +29,28 @@ import org.springframework.web.bind.annotation.RestController;
 public class TimeSaleController {
 
     private final TimeSaleService timeSaleService;
-    private final FakeSellerStub fakeSellerStub;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<TimeSaleResponse> createTimeSale(@Valid @RequestBody TimeSaleCreateRequest request) {
+    public ApiResponse<TimeSaleResponse> createTimeSale(
+            @AuthenticationPrincipal AuthenticatedMember member,
+            @Valid @RequestBody TimeSaleCreateRequest request
+    ) {
         return ApiResponse.success(
                 "타임세일이 등록되었습니다.",
-                timeSaleService.createTimeSale(fakeSellerStub.getSellerId(), request)
+                timeSaleService.createTimeSale(member.memberId(), request)
         );
     }
 
     @PatchMapping("/{timeSaleId}")
     public ApiResponse<TimeSaleResponse> updateTimeSale(
             @PathVariable Long timeSaleId,
+            @AuthenticationPrincipal AuthenticatedMember member,
             @Valid @RequestBody TimeSaleUpdateRequest request
     ) {
         return ApiResponse.success(
                 "타임세일이 수정되었습니다.",
-                timeSaleService.updateTimeSale(fakeSellerStub.getSellerId(), timeSaleId, request)
+                timeSaleService.updateTimeSale(member.memberId(), timeSaleId, request)
         );
     }
 

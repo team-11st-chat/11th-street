@@ -1,5 +1,7 @@
 package com.elevenst.realtimechat.domain.order.service;
 
+import com.elevenst.realtimechat.domain.member.entity.Member;
+import com.elevenst.realtimechat.domain.member.repository.MemberRepository;
 import com.elevenst.realtimechat.domain.order.dto.TimeSaleOrderRequest;
 import com.elevenst.realtimechat.domain.order.dto.TimeSaleOrderResponse;
 import com.elevenst.realtimechat.domain.order.entity.TimeSaleOrder;
@@ -27,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class TimeSaleOrderService {
 
     private final TimeSaleOrderRepository timeSaleOrderRepository;
+    private final MemberRepository memberRepository;
     private final TimeSaleRepository timeSaleRepository;
     private final TimeSaleStockRepository timeSaleStockRepository;
     private final LockManager lockManager;
@@ -46,6 +49,9 @@ public class TimeSaleOrderService {
 
         try {
             LocalDateTime now = LocalDateTime.now();
+            Member member = memberRepository.findById(memberId)
+                    .orElseThrow(() -> new BusinessException(CommonErrorCode.INVALID_REQUEST, "회원 정보가 없습니다."));
+
             TimeSale timeSale = timeSaleRepository.findById(timeSaleId)
                     .orElseThrow(() -> new TimeSaleException(TimeSaleErrorCode.TIME_SALE_NOT_FOUND));
 
@@ -69,7 +75,7 @@ public class TimeSaleOrderService {
             timeSale.getProduct().decreaseStock(request.quantity());
 
             TimeSaleOrder order = new TimeSaleOrder(
-                    memberId,
+                    member,
                     timeSale.getProduct().getId(),
                     timeSale.getId(),
                     requestId,

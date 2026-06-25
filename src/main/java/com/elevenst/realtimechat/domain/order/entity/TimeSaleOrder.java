@@ -1,12 +1,16 @@
 package com.elevenst.realtimechat.domain.order.entity;
 
+import com.elevenst.realtimechat.domain.member.entity.Member;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
@@ -22,8 +26,9 @@ public class TimeSaleOrder {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private Long memberId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "member_id", nullable = false)
+    private Member member;
 
     @Column(nullable = false)
     private Long productId;
@@ -59,10 +64,10 @@ public class TimeSaleOrder {
     @Column(insertable = false, updatable = false)
     private Long completedMemberId;
 
-    public TimeSaleOrder(Long memberId, Long productId, Long timeSaleId, String requestId,
+    public TimeSaleOrder(Member member, Long productId, Long timeSaleId, String requestId,
                          String productNameSnapshot, BigDecimal originalPriceSnapshot, BigDecimal salePriceSnapshot,
                          int quantity, TimeSaleOrderStatus status, String failureReason, LocalDateTime orderedAt) {
-        this.memberId = memberId;
+        this.member = member;
         this.productId = productId;
         this.timeSaleId = timeSaleId;
         this.requestId = requestId;

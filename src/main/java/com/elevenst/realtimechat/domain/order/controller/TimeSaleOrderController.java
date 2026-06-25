@@ -1,13 +1,14 @@
 package com.elevenst.realtimechat.domain.order.controller;
 
-import com.elevenst.realtimechat.domain.member.support.FakeMemberStub;
 import com.elevenst.realtimechat.domain.order.dto.TimeSaleOrderRequest;
 import com.elevenst.realtimechat.domain.order.dto.TimeSaleOrderResponse;
 import com.elevenst.realtimechat.domain.order.service.TimeSaleOrderService;
 import com.elevenst.realtimechat.global.response.ApiResponse;
+import com.elevenst.realtimechat.global.security.AuthenticatedMember;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -22,18 +23,18 @@ import org.springframework.web.bind.annotation.RestController;
 public class TimeSaleOrderController {
 
     private final TimeSaleOrderService timeSaleOrderService;
-    private final FakeMemberStub fakeMemberStub;
 
     @PostMapping("/{timeSaleId}/orders")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<TimeSaleOrderResponse> orderTimeSale(
             @PathVariable Long timeSaleId,
-            @RequestHeader("Request-ID") String requestId,
-            @Valid @RequestBody TimeSaleOrderRequest request
+            @RequestHeader(value = "Request-ID", required = true) String requestId,
+            @Valid @RequestBody TimeSaleOrderRequest request,
+            @AuthenticationPrincipal AuthenticatedMember member
     ) {
         return ApiResponse.success(
-                "주문이 완료되었습니다.",
-                timeSaleOrderService.orderTimeSale(fakeMemberStub.getMemberId(), timeSaleId, requestId, request)
+                "주문이 성공적으로 처리되었습니다.",
+                timeSaleOrderService.orderTimeSale(member.memberId(), timeSaleId, requestId, request)
         );
     }
 }
