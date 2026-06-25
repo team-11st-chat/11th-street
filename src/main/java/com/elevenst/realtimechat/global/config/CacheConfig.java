@@ -10,6 +10,7 @@ import org.springframework.cache.support.SimpleCacheManager;
 import org.springframework.cache.transaction.TransactionAwareCacheManagerProxy;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
 @Configuration
 @EnableCaching(proxyTargetClass = true)
@@ -24,18 +25,19 @@ public class CacheConfig {
     public static final long PRODUCT_SEARCH_MAXIMUM_SIZE = 10_000L;
 
     @Bean
+    @Primary
     public CacheManager cacheManager() {
         SimpleCacheManager cacheManager = new SimpleCacheManager();
         cacheManager.setCaches(List.of(
-                new CaffeineCache(PRODUCT_SEARCH_CACHE, Caffeine.newBuilder()
-                        .expireAfterWrite(PRODUCT_SEARCH_TTL)
-                        .maximumSize(PRODUCT_SEARCH_MAXIMUM_SIZE)
-                        .recordStats()
-                        .build()),
-                new CaffeineCache(POPULAR_KEYWORDS_CACHE, Caffeine.newBuilder()
-                        .expireAfterWrite(POPULAR_KEYWORDS_TTL)
-                        .recordStats()
-                        .build())
+            new CaffeineCache(PRODUCT_SEARCH_CACHE, Caffeine.newBuilder()
+                .expireAfterWrite(PRODUCT_SEARCH_TTL)
+                .maximumSize(PRODUCT_SEARCH_MAXIMUM_SIZE)
+                .recordStats()
+                .build()),
+            new CaffeineCache(POPULAR_KEYWORDS_CACHE, Caffeine.newBuilder()
+                .expireAfterWrite(POPULAR_KEYWORDS_TTL)
+                .recordStats()
+                .build())
         ));
         cacheManager.initializeCaches();
         return new TransactionAwareCacheManagerProxy(cacheManager);
