@@ -18,3 +18,18 @@ Request-Guest-ID: guest_123
 
 ### 상품 상세 조회 성공
 GET {{host}}/api/v1/products/1
+
+### Product search success - no result keyword is still recorded
+GET {{host}}/api/v1/products?keyword=no-result-keyword&page=0&size=20
+Request-Guest-ID: guest_no_result
+
+### Popular keywords success
+GET {{host}}/api/v1/popular-keywords
+
+### Product search failure - invalid page
+GET {{host}}/api/v1/products?keyword=earphone&page=-1&size=20
+Request-Guest-ID: guest_123
+
+### Product search failure - invalid size
+GET {{host}}/api/v1/products?keyword=earphone&page=0&size=0
+Request-Guest-ID: guest_123
