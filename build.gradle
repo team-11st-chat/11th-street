@@ -77,13 +77,21 @@ tasks.register('integrationTest', Test) {
     classpath = sourceSets.test.runtimeClasspath
 
     useJUnitPlatform()
+
+    // 1. 기존 Current change의 통합 테스트 설정 유지
     include '**/*IntegrationTest.class'
     include '**/*IT.class'
 
     systemProperty 'spring.profiles.active', 'test'
     shouldRunAfter tasks.named('test')
+
+    // 2. Incoming change의 성능 테스트 환경 변수 설정 통합
+    def perfEnv = System.getenv("PERFORMANCE_TEST")
+    println ">>> PERFORMANCE_TEST System.getenv: [${perfEnv}]"
+    environment "PERFORMANCE_TEST", (perfEnv ?: "false").trim()
 }
 
+// 3. check 태스크 의존성 설정
 tasks.named('check') {
     dependsOn tasks.named('integrationTest')
 }
