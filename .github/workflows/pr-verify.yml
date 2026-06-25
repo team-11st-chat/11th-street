@@ -1,0 +1,47 @@
+name: PR Verification
+
+on:
+  pull_request:
+    branches:
+      - develop
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Compile and Test
+    runs-on: ubuntu-latest
+
+    # 테스트에 필요한 Redis 컨테이너 띄우기
+    services:
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21' # 자바 버전을 하나로 통일!
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Prepare Gradle wrapper
+        run: |
+          sed -i 's/\r$//' gradlew
+          chmod +x gradlew
+
+      - name: Compile & Run Tests
+        run: ./gradlew build --no-daemon # 빌드와 테스트를 한 번에 수행

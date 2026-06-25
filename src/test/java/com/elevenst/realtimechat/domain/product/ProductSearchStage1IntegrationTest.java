@@ -8,6 +8,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 
 import com.elevenst.realtimechat.domain.member.entity.MemberRole;
 import com.elevenst.realtimechat.domain.product.entity.Category;
@@ -30,8 +32,7 @@ import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.Authentication;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -68,7 +69,10 @@ class ProductSearchStage1IntegrationTest {
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+        mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext)
+                .apply(springSecurity())
+                .defaultRequest(get("/").with(authentication(testAuthentication())))
+                .build();
 
         clearSearchCaches();
         searchHistoryRepository.deleteAll();
@@ -273,12 +277,12 @@ class ProductSearchStage1IntegrationTest {
         }
     }
 
-    private void authenticateSeller() {
-        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+    private Authentication testAuthentication() {
+        return new UsernamePasswordAuthenticationToken(
                 new AuthenticatedMember(1L, MemberRole.SELLER),
                 null,
-                List.of(new SimpleGrantedAuthority("ROLE_SELLER"))
-        ));
+                List.of()
+        );
     }
 
     private record KeywordCount(String keyword, long searchCount) {
