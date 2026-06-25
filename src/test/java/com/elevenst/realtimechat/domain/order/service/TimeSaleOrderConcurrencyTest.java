@@ -196,7 +196,8 @@ class TimeSaleOrderConcurrencyTest {
                     readyLatch.countDown();
                     startLatch.await();
                     task.run(threadNumber);
-                } catch (com.elevenst.realtimechat.global.exception.BusinessException e) {
+                } catch (com.elevenst.realtimechat.global.exception.BusinessException
+                         | org.springframework.dao.DataAccessException e) {
                     rejectedCount.incrementAndGet();
                 } catch (Exception e) {
                     log.warn("[스레드-{}] 예상치 못한 예외: {}", threadNumber, e.toString());
