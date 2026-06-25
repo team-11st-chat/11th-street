@@ -1,11 +1,30 @@
 spring:
   application:
     name: 11th-street
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: ${DB_DRIVER_CLASS_NAME}
+  flyway:
+    enabled: ${FLYWAY_ENABLED}
+    locations: ${FLYWAY_LOCATIONS}
+    validate-on-migrate: ${FLYWAY_VALIDATE_ON_MIGRATE}
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO}
+    open-in-view: ${JPA_OPEN_IN_VIEW}
 
 server:
-  shutdown: graceful
+  port: ${SERVER_PORT}
+  shutdown: ${SERVER_SHUTDOWN}
 
 jwt:
   secret: ${JWT_SECRET}
   access-token-validity-seconds: ${JWT_ACCESS_TOKEN_VALIDITY_SECONDS}
   refresh-token-validity-seconds: ${JWT_REFRESH_TOKEN_VALIDITY_SECONDS}
+  refresh-cookie-secure: ${JWT_REFRESH_COOKIE_SECURE}

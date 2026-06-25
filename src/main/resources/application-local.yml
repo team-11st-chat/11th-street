@@ -1,16 +1,8 @@
 spring:
-  datasource:
-    url: ${MYSQL_URL}
-    username: ${MYSQL_USER}
-    password: ${MYSQL_PASSWORD}
-  data:
-    redis:
-      host: ${REDIS_HOST}
-      port: ${REDIS_PORT}
   jpa:
     hibernate:
-      ddl-auto: update
-    open-in-view: false
+      ddl-auto: ${JPA_DDL_AUTO}
+    open-in-view: ${JPA_OPEN_IN_VIEW}
 
 jwt:
-  refresh-cookie-secure: false
+  refresh-cookie-secure: ${JWT_REFRESH_COOKIE_SECURE:false}

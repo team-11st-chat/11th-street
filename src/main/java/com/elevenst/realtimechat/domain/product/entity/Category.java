@@ -2,6 +2,7 @@ package com.elevenst.realtimechat.domain.product.entity;
 
 import com.elevenst.realtimechat.domain.product.exception.ProductErrorCode;
 import com.elevenst.realtimechat.domain.product.exception.ProductException;
+import com.elevenst.realtimechat.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -10,7 +11,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -20,7 +20,7 @@ import lombok.NoArgsConstructor;
 @Entity
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Category {
+public class Category extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -39,17 +39,10 @@ public class Category {
     @Column(nullable = false)
     private int sortOrder;
 
-    @Column(nullable = false)
-    private LocalDateTime createdAt;
-
-    @Column(nullable = false)
-    private LocalDateTime updatedAt;
-
     public static Category createRoot(String name, int sortOrder) {
         validateName(name);
         validateSortOrder(sortOrder);
-        LocalDateTime now = LocalDateTime.now();
-        return new Category(null, null, name.trim(), 1, sortOrder, now, now);
+        return new Category(null, null, name.trim(), 1, sortOrder);
     }
 
     public static Category createChild(Category parent, String name, int sortOrder) {
@@ -58,8 +51,7 @@ public class Category {
         }
         validateName(name);
         validateSortOrder(sortOrder);
-        LocalDateTime now = LocalDateTime.now();
-        return new Category(null, parent, name.trim(), 2, sortOrder, now, now);
+        return new Category(null, parent, name.trim(), 2, sortOrder);
     }
 
     public boolean isLeaf() {

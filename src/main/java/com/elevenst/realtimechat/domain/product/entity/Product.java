@@ -2,6 +2,7 @@ package com.elevenst.realtimechat.domain.product.entity;
 
 import com.elevenst.realtimechat.domain.product.exception.ProductErrorCode;
 import com.elevenst.realtimechat.domain.product.exception.ProductException;
+import com.elevenst.realtimechat.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -13,7 +14,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -23,7 +23,7 @@ import lombok.NoArgsConstructor;
 @Entity
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Product {
+public class Product extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -49,12 +49,6 @@ public class Product {
     @Column(nullable = false, length = 20)
     private SaleStatus saleStatus;
 
-    @Column(nullable = false)
-    private LocalDateTime createdAt;
-
-    @Column(nullable = false)
-    private LocalDateTime updatedAt;
-
     public static Product create(Long sellerId, Category category, String name, BigDecimal price, int stockQuantity) {
         validateSellerId(sellerId);
         validateCategory(category);
@@ -63,8 +57,7 @@ public class Product {
         validateStockQuantity(stockQuantity);
 
         SaleStatus status = stockQuantity == 0 ? SaleStatus.SOLD_OUT : SaleStatus.ON_SALE;
-        LocalDateTime now = LocalDateTime.now();
-        return new Product(null, sellerId, category, name.trim(), price, stockQuantity, status, now, now);
+        return new Product(null, sellerId, category, name.trim(), price, stockQuantity, status);
     }
 
     public void update(Long sellerId, Category category, String name, BigDecimal price, Integer stockQuantity, SaleStatus saleStatus) {
@@ -91,7 +84,6 @@ public class Product {
         } else if (stockQuantity != null && this.saleStatus != SaleStatus.SUSPENDED) {
             this.saleStatus = stockQuantity == 0 ? SaleStatus.SOLD_OUT : SaleStatus.ON_SALE;
         }
-        this.updatedAt = LocalDateTime.now();
     }
 
     private void validateOwner(Long sellerId) {
