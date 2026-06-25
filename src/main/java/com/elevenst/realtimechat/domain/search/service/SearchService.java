@@ -9,6 +9,7 @@ import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -21,7 +22,7 @@ public class SearchService implements SearchKeywordRecorder {
     private final SearchHistoryRepository searchHistoryRepository;
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void record(SearchKeywordRecordCommand command) {
         String normalizedKeyword = normalizeKeyword(command.keyword());
         if (normalizedKeyword == null) {
@@ -48,6 +49,10 @@ public class SearchService implements SearchKeywordRecorder {
         if (keyword == null || keyword.trim().isBlank()) {
             return null;
         }
-        return keyword.trim().toLowerCase(Locale.ROOT);
+        String trimmed = keyword.trim().toLowerCase(Locale.ROOT);
+        if (trimmed.length() > 255) {
+            return trimmed.substring(0, 255);
+        }
+        return trimmed;
     }
 }
