@@ -18,6 +18,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.redisson.api.RedissonClient;
@@ -77,6 +78,7 @@ class CouponIssueConcurrencyTest {
     }
 
     @Test
+    @Disabled("Issue #26 - 분산 락 구현 후 활성화")
     @DisplayName("[재현] 분산 락 미적용 시 선착순 수량보다 많은 발급이 성공하여 쿠폰 초과 발급이 발생한다")
     void couponOverIssuingReproduced() throws InterruptedException {
         int totalQuantity = 5;

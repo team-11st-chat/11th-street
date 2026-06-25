@@ -25,6 +25,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.redisson.api.RedissonClient;
@@ -94,6 +95,7 @@ class TimeSaleOrderConcurrencyTest {
     }
 
     @Test
+    @Disabled("Issue #26 - 분산 락 구현 후 활성화")
     @DisplayName("[재현] 분산 락 미적용 시 한정 수량보다 많은 주문이 성공하여 타임세일 초과 판매가 발생한다")
     void timeSaleOverSellingReproduced() throws InterruptedException {
         int limitedStock = 5;
@@ -122,6 +124,7 @@ class TimeSaleOrderConcurrencyTest {
     }
 
     @Test
+    @Disabled("Issue #26 - 분산 락 구현 후 활성화")
     @DisplayName("[재현] 분산 락 미적용 시 동일 고객의 동시 주문이 모두 성공하여 중복 주문이 발생한다")
     void duplicateOrderBySameMemberReproduced() throws InterruptedException {
         int threadCount = 10;
