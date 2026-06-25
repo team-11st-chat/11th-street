@@ -1,12 +1,12 @@
 server:
-  port: ${SERVER_PORT:8080}
-  shutdown: ${SERVER_SHUTDOWN:graceful}
+  port: 8080
+  shutdown: graceful
 
 spring:
   application:
     name: 11th-street
   profiles:
-    active: ${SPRING_PROFILES_ACTIVE:local}
+    active: local
 
   datasource:
     url: ${DB_URL}
@@ -16,18 +16,18 @@ spring:
 
   data:
     redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
+      host: localhost
+      port: 6379
 
   jpa:
     hibernate:
-      ddl-auto: ${JPA_DDL_AUTO:validate}
-    open-in-view: ${JPA_OPEN_IN_VIEW:false}
+      ddl-auto: validate
+    open-in-view: false
 
   flyway:
-    enabled: ${FLYWAY_ENABLED:true}
-    locations: ${FLYWAY_LOCATIONS:classpath:db/migration}
-    validate-on-migrate: ${FLYWAY_VALIDATE_ON_MIGRATE:true}
+    enabled: true
+    locations: classpath:db/migration
+    validate-on-migrate: true
 
 jwt:
   secret: ${JWT_SECRET}
