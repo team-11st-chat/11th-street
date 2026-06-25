@@ -1,6 +1,6 @@
 spring:
   flyway:
-    validate-on-migrate: ${FLYWAY_VALIDATE_ON_MIGRATE:true}
+    validate-on-migrate: true
 
 jwt:
-  refresh-cookie-secure: ${JWT_REFRESH_COOKIE_SECURE:true}
+  refresh-cookie-secure: true

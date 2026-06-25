@@ -51,4 +51,13 @@ class JwtTokenProviderTest {
         assertThat(payload).contains("\"type\":\"refresh\"");
         assertThat(payload).doesNotContain("role");
     }
+
+    @Test
+    void accessToken_parse_extractsRoleClaim() {
+        // given
+        String token = provider.createAccessToken(42L, MemberRole.BUYER).tokenValue();
+
+        // when & then
+        assertThat(provider.parse(token).role()).isEqualTo("BUYER");
+    }
 }

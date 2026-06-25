@@ -10,6 +10,7 @@ public record TokenClaims(
         Long memberId,
         String jti,
         String type,
+        String role,
         Instant issuedAt,
         Instant expiresAt
 ) {
