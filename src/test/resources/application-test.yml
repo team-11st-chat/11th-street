@@ -28,3 +28,9 @@ jwt:
 server:
   port: 0
   shutdown: graceful
+
+app:
+  redis:
+    key-prefix:
+      cache: "test:cache:"
+      lock: "test:lock:"
