@@ -12,6 +12,7 @@ import com.elevenst.realtimechat.domain.product.exception.ProductErrorCode;
 import com.elevenst.realtimechat.domain.product.exception.ProductException;
 import com.elevenst.realtimechat.domain.product.repository.CategoryRepository;
 import com.elevenst.realtimechat.domain.product.repository.ProductRepository;
+import com.elevenst.realtimechat.domain.search.service.SearchKeywordRecordCommand;
 import com.elevenst.realtimechat.domain.search.service.SearchKeywordRecorder;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
@@ -60,7 +61,7 @@ public class ProductService {
     public ProductPageResponse searchProducts(String keyword, Long categoryId, int page, int size, String guestId) {
         validatePageRequest(page, size);
         String normalizedKeyword = normalizeKeyword(keyword);
-        recordSearchKeyword(normalizedKeyword, guestId);
+        recordSearchKeyword(normalizedKeyword, categoryId, guestId);
 
         return ProductPageResponse.from(productRepository
                 .searchProducts(normalizedKeyword, categoryId, SaleStatus.SUSPENDED, SaleStatus.SOLD_OUT, PageRequest.of(page, size))
@@ -90,9 +91,9 @@ public class ProductService {
         return keyword.trim().toLowerCase(Locale.ROOT);
     }
 
-    private void recordSearchKeyword(String keyword, String guestId) {
+    private void recordSearchKeyword(String keyword, Long categoryId, String guestId) {
         if (keyword != null) {
-            searchKeywordRecorder.record(keyword, guestId);
+            searchKeywordRecorder.record(SearchKeywordRecordCommand.guest(keyword, guestId, categoryId));
         }
     }
 }
