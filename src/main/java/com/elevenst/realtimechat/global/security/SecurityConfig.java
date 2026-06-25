@@ -1,5 +1,8 @@
 package com.elevenst.realtimechat.global.security;
 
+import com.elevenst.realtimechat.global.security.token.AccessTokenBlacklist;
+import com.elevenst.realtimechat.global.security.token.TokenInvalidationRegistry;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -10,6 +13,8 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.servlet.HandlerExceptionResolver;
 
 @Configuration
 @EnableConfigurationProperties(JwtProperties.class)
@@ -21,18 +26,32 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            JwtTokenProvider jwtTokenProvider,
+            AccessTokenBlacklist accessTokenBlacklist,
+            TokenInvalidationRegistry tokenInvalidationRegistry,
+            @Qualifier("handlerExceptionResolver") HandlerExceptionResolver handlerExceptionResolver)
+            throws Exception {
+        JwtAuthenticationFilter jwtAuthenticationFilter = new JwtAuthenticationFilter(
+                jwtTokenProvider, accessTokenBlacklist, tokenInvalidationRegistry);
+
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // refresh/logout 은 Refresh Token 쿠키·Access Token 을 직접 검증하므로 인증 필터(이슈 #23) 도입 전까지 permitAll 로 둔다.
+                        // 공개 경로: 회원가입과 토큰 발급·재발급·로그아웃은 Access Token 인증이 필요 없다.
+                        // refresh/logout 은 Refresh Token 쿠키·Access Token 을 직접 검증한다.
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/members",
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/refresh",
                                 "/api/v1/auth/logout").permitAll()
+                        .requestMatchers("/ws").permitAll()
                         .anyRequest().authenticated())
+                .exceptionHandling(handling -> handling
+                        .authenticationEntryPoint(new RestAuthenticationEntryPoint(handlerExceptionResolver)))
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable);
         return http.build();

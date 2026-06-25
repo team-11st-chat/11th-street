@@ -68,6 +68,7 @@ public class JwtTokenProvider {
                 Long.valueOf(claims.getSubject()),
                 claims.getId(),
                 claims.get("type", String.class),
+                claims.get("role", String.class),
                 claims.getIssuedAt().toInstant(),
                 claims.getExpiration().toInstant());
     }
