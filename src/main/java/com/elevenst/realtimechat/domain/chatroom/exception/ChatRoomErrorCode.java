@@ -14,9 +14,10 @@ public enum ChatRoomErrorCode implements ErrorCode {
     PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "Product not found."),
     ACTIVE_CS_ROOM_EXISTS(HttpStatus.CONFLICT, "An active CS chat room already exists."),
     CS_ROOM_NOT_WAITING(HttpStatus.CONFLICT, "CS chat room is not waiting."),
-    CS_ROOM_ALREADY_COMPLETED(HttpStatus.CONFLICT, "CS chat room is already completed."),
+    CS_ROOM_NOT_IN_PROGRESS(HttpStatus.CONFLICT, "CS chat room is not in progress."),
     ACCESS_DENIED(HttpStatus.FORBIDDEN, "Chat room access is denied."),
-    CS_ADMIN_REQUIRED(HttpStatus.FORBIDDEN, "CS admin role is required.");
+    CS_ADMIN_REQUIRED(HttpStatus.FORBIDDEN, "CS admin role is required."),
+    LOCK_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "Chat room request is temporarily unavailable.");
 
     private final HttpStatus httpStatus;
     private final String message;

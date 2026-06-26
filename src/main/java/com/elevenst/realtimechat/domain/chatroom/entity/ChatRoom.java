@@ -78,8 +78,8 @@ public class ChatRoom extends BaseEntity {
 
     public void completeCs(LocalDateTime completedAt) {
         validateCsRoom();
-        if (this.csStatus == CsStatus.COMPLETED) {
-            throw new ChatRoomException(ChatRoomErrorCode.CS_ROOM_ALREADY_COMPLETED);
+        if (this.csStatus != CsStatus.IN_PROGRESS) {
+            throw new ChatRoomException(ChatRoomErrorCode.CS_ROOM_NOT_IN_PROGRESS);
         }
         this.csStatus = CsStatus.COMPLETED;
         this.closedAt = completedAt;

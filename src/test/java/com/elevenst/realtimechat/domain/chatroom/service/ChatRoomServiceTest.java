@@ -14,8 +14,10 @@ import com.elevenst.realtimechat.domain.chatroom.entity.CsStatus;
 import com.elevenst.realtimechat.domain.chatroom.exception.ChatRoomException;
 import com.elevenst.realtimechat.domain.chatroom.repository.ChatRoomParticipantRepository;
 import com.elevenst.realtimechat.domain.chatroom.repository.ChatRoomRepository;
-import com.elevenst.realtimechat.domain.member.entity.Member;
+import com.elevenst.realtimechat.domain.member.entity.MemberRole;
 import com.elevenst.realtimechat.domain.member.repository.MemberRepository;
+import com.elevenst.realtimechat.global.support.LockManager;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,6 +41,9 @@ class ChatRoomServiceTest {
     @Mock
     private ChatRoomProductCatalogReader productCatalogReader;
 
+    @Mock
+    private LockManager lockManager;
+
     private ChatRoomService chatRoomService;
 
     @BeforeEach
@@ -47,7 +52,8 @@ class ChatRoomServiceTest {
                 chatRoomRepository,
                 participantRepository,
                 memberRepository,
-                productCatalogReader
+                productCatalogReader,
+                lockManager
         );
     }
 
@@ -58,13 +64,10 @@ class ChatRoomServiceTest {
         Long productId = 100L;
         ChatRoom existingRoom = ChatRoom.product(buyerId, sellerId);
 
-        when(memberRepository.findWithLockById(buyerId)).thenReturn(Optional.of(Member.create(
-                "buyer@example.com",
-                "password",
-                "buyer"
-        )));
+        when(memberRepository.existsById(buyerId)).thenReturn(true);
         when(productCatalogReader.getProductSeller(productId))
                 .thenReturn(new ProductSellerSnapshot(productId, sellerId));
+        when(lockManager.tryLock("lock:chatroom:product:" + sellerId + ":" + buyerId)).thenReturn(true);
         when(chatRoomRepository.findByRoomTypeAndSellerIdAndCreatedByMemberId(
                 ChatRoomType.PRODUCT,
                 sellerId,
@@ -77,17 +80,32 @@ class ChatRoomServiceTest {
         assertThat(response.sellerId()).isEqualTo(sellerId);
         assertThat(response.createdByMemberId()).isEqualTo(buyerId);
         verify(chatRoomRepository, never()).save(any(ChatRoom.class));
+        verify(lockManager).unlock("lock:chatroom:product:" + sellerId + ":" + buyerId);
+    }
+
+    @Test
+    void createProductRoom_rejectsSellerOwnProductRoom() {
+        Long sellerId = 2L;
+        Long productId = 100L;
+
+        when(memberRepository.existsById(sellerId)).thenReturn(true);
+        when(productCatalogReader.getProductSeller(productId))
+                .thenReturn(new ProductSellerSnapshot(productId, sellerId));
+
+        assertThatThrownBy(() -> chatRoomService.createProductRoom(sellerId, productId))
+                .isInstanceOf(ChatRoomException.class)
+                .hasMessage("Member information is invalid.");
+
+        verify(lockManager, never()).tryLock(any());
+        verify(chatRoomRepository, never()).save(any(ChatRoom.class));
     }
 
     @Test
     void createCsRoom_rejectsWhenMemberAlreadyHasActiveCsRoom() {
         Long memberId = 1L;
 
-        when(memberRepository.findWithLockById(memberId)).thenReturn(Optional.of(Member.create(
-                "customer@example.com",
-                "password",
-                "customer"
-        )));
+        when(memberRepository.existsById(memberId)).thenReturn(true);
+        when(lockManager.tryLock("lock:chatroom:cs:member:" + memberId)).thenReturn(true);
         when(chatRoomRepository.existsByRoomTypeAndCreatedByMemberIdAndCsStatusIn(
                 ChatRoomType.CS,
                 memberId,
@@ -99,5 +117,32 @@ class ChatRoomServiceTest {
                 .hasMessage("An active CS chat room already exists.");
 
         verify(chatRoomRepository, never()).save(any(ChatRoom.class));
+        verify(lockManager).unlock("lock:chatroom:cs:member:" + memberId);
+    }
+
+    @Test
+    void acceptCsRoom_usesLockedRoomLookupBeforeStatusChange() {
+        Long adminId = 3L;
+        Long chatRoomId = 10L;
+        ChatRoom waitingRoom = ChatRoom.cs(1L);
+
+        when(memberRepository.existsById(adminId)).thenReturn(true);
+        when(chatRoomRepository.findByIdAndRoomTypeWithLock(chatRoomId, ChatRoomType.CS))
+                .thenReturn(Optional.of(waitingRoom));
+
+        ChatRoomResponse response = chatRoomService.acceptCsRoom(adminId, MemberRole.CS_ADMIN, chatRoomId);
+
+        assertThat(response.csStatus()).isEqualTo(CsStatus.IN_PROGRESS);
+        verify(chatRoomRepository).findByIdAndRoomTypeWithLock(chatRoomId, ChatRoomType.CS);
+        verify(chatRoomRepository, never()).findByIdAndRoomType(chatRoomId, ChatRoomType.CS);
+    }
+
+    @Test
+    void completeCs_rejectsWaitingRoom() {
+        ChatRoom waitingRoom = ChatRoom.cs(1L);
+
+        assertThatThrownBy(() -> waitingRoom.completeCs(LocalDateTime.now()))
+                .isInstanceOf(ChatRoomException.class)
+                .hasMessage("CS chat room is not in progress.");
     }
 }
