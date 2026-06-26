@@ -19,7 +19,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
                       and (:keyword is null or lower(p.name) like concat('%', :keyword, '%'))
                       and (:categoryId is null or p.category.id = :categoryId)
                     order by
-                      case when p.saleStatus = :soldOutStatus then 1 else 0 end asc,
+                      p.searchSortOrder asc,
                       p.id desc
                     """,
             countQuery = """
@@ -34,7 +34,6 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
             @Param("keyword") String keyword,
             @Param("categoryId") Long categoryId,
             @Param("suspendedStatus") SaleStatus suspendedStatus,
-            @Param("soldOutStatus") SaleStatus soldOutStatus,
             Pageable pageable
     );
 }

@@ -49,6 +49,9 @@ public class Product extends BaseEntity {
     @Column(nullable = false, length = 20)
     private SaleStatus saleStatus;
 
+    @Column(nullable = false)
+    private int searchSortOrder;
+
     public static Product create(Long sellerId, Category category, String name, BigDecimal price, int stockQuantity) {
         validateSellerId(sellerId);
         validateCategory(category);
@@ -57,7 +60,7 @@ public class Product extends BaseEntity {
         validateStockQuantity(stockQuantity);
 
         SaleStatus status = stockQuantity == 0 ? SaleStatus.SOLD_OUT : SaleStatus.ON_SALE;
-        return new Product(null, sellerId, category, name.trim(), price, stockQuantity, status);
+        return new Product(null, sellerId, category, name.trim(), price, stockQuantity, status, searchSortOrder(status));
     }
 
     public void update(Long sellerId, Category category, String name, BigDecimal price, Integer stockQuantity, SaleStatus saleStatus) {
@@ -84,6 +87,7 @@ public class Product extends BaseEntity {
         } else if (stockQuantity != null && this.saleStatus != SaleStatus.SUSPENDED) {
             this.saleStatus = stockQuantity == 0 ? SaleStatus.SOLD_OUT : SaleStatus.ON_SALE;
         }
+        this.searchSortOrder = searchSortOrder(this.saleStatus);
     }
 
     private void validateOwner(Long sellerId) {
@@ -135,6 +139,11 @@ public class Product extends BaseEntity {
         this.stockQuantity -= quantity;
         if (this.stockQuantity == 0 && this.saleStatus != SaleStatus.SUSPENDED) {
             this.saleStatus = SaleStatus.SOLD_OUT;
+            this.searchSortOrder = searchSortOrder(this.saleStatus);
         }
+    }
+
+    private static int searchSortOrder(SaleStatus saleStatus) {
+        return saleStatus == SaleStatus.SOLD_OUT ? 1 : 0;
     }
 }

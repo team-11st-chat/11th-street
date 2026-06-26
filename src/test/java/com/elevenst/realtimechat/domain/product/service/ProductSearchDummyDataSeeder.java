@@ -56,8 +56,8 @@ class ProductSearchDummyDataSeeder {
     }
 
     private void insertProducts(int productCount, List<Category> leaves) {
-        String sql = "INSERT INTO product (seller_id, category_id, name, price, stock_quantity, sale_status, created_at, updated_at) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO product (seller_id, category_id, name, price, stock_quantity, sale_status, search_sort_order, created_at, updated_at) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
         LocalDateTime now = LocalDateTime.now();
 
         jdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
@@ -70,9 +70,11 @@ class ProductSearchDummyDataSeeder {
                 ps.setString(3, productName(i));
                 ps.setBigDecimal(4, BigDecimal.valueOf(10_000L + i));
                 ps.setInt(5, stockQuantity(i));
-                ps.setString(6, saleStatus(i));
-                ps.setTimestamp(7, Timestamp.valueOf(now.minusSeconds(productCount - i)));
+                String saleStatus = saleStatus(i);
+                ps.setString(6, saleStatus);
+                ps.setInt(7, searchSortOrder(saleStatus));
                 ps.setTimestamp(8, Timestamp.valueOf(now.minusSeconds(productCount - i)));
+                ps.setTimestamp(9, Timestamp.valueOf(now.minusSeconds(productCount - i)));
             }
 
             @Override
@@ -98,6 +100,10 @@ class ProductSearchDummyDataSeeder {
 
     private String saleStatus(int index) {
         return index % 10 == 0 ? "SOLD_OUT" : "ON_SALE";
+    }
+
+    private int searchSortOrder(String saleStatus) {
+        return "SOLD_OUT".equals(saleStatus) ? 1 : 0;
     }
 
     record SeedResult(int productCount, Long rootCategoryId, List<Long> leafCategoryIds) {
