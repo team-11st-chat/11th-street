@@ -31,6 +31,8 @@ server:
 
 app:
   redis:
+    pubsub:
+      enabled: false
     key-prefix:
       cache: "test:cache:v1:"
       lock: "test:lock:"

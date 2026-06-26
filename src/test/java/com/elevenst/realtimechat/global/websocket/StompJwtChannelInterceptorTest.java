@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
+import com.elevenst.realtimechat.domain.chatroom.exception.ChatRoomException;
+import com.elevenst.realtimechat.domain.chatroom.repository.ChatRoomParticipantRepository;
 import com.elevenst.realtimechat.global.security.JwtTokenProvider;
 import com.elevenst.realtimechat.global.security.token.AccessTokenBlacklist;
 import com.elevenst.realtimechat.global.security.token.TokenClaims;
@@ -40,11 +42,19 @@ class StompJwtChannelInterceptorTest {
     @Mock
     private TokenInvalidationRegistry tokenInvalidationRegistry;
 
+    @Mock
+    private ChatRoomParticipantRepository participantRepository;
+
     private StompJwtChannelInterceptor interceptor;
 
     @BeforeEach
     void setUp() {
-        interceptor = new StompJwtChannelInterceptor(jwtTokenProvider, accessTokenBlacklist, tokenInvalidationRegistry);
+        interceptor = new StompJwtChannelInterceptor(
+                jwtTokenProvider,
+                accessTokenBlacklist,
+                tokenInvalidationRegistry,
+                participantRepository
+        );
     }
 
     @Test
@@ -123,6 +133,22 @@ class StompJwtChannelInterceptorTest {
         // when & then
         assertThatThrownBy(() -> interceptor.preSend(message, null))
                 .isInstanceOf(BadCredentialsException.class);
+    }
+
+    @Test
+    void subscribe_rejectsNonParticipantChatRoomTopic() {
+        // given
+        givenValidAccessToken();
+        given(participantRepository.existsByChatRoomIdAndMemberIdAndLeftAtIsNull(10L, 1L))
+                .willReturn(false);
+        StompHeaderAccessor accessor = accessor(StompCommand.SUBSCRIBE);
+        accessor.setDestination("/topic/chatrooms/10");
+        accessor.getSessionAttributes().put("accessToken", TOKEN);
+        Message<?> message = message(accessor);
+
+        // when & then
+        assertThatThrownBy(() -> interceptor.preSend(message, null))
+                .isInstanceOf(ChatRoomException.class);
     }
 
     private void givenValidAccessToken() {
