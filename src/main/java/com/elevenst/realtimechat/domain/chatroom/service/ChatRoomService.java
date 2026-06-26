@@ -79,7 +79,7 @@ public class ChatRoomService {
 
             LocalDateTime now = LocalDateTime.now();
             ChatRoom room = chatRoomRepository.save(ChatRoom.cs(memberId));
-            participantRepository.save(new ChatRoomParticipant(room, memberId, ParticipantRole.CUSTOMER, now));
+            participantRepository.save(ChatRoomParticipant.join(room, memberId, ParticipantRole.CUSTOMER, now));
             return ChatRoomResponse.from(room);
         } finally {
             lockManager.unlock(lockKey);
@@ -118,8 +118,8 @@ public class ChatRoomService {
     private ChatRoom saveProductRoom(Long memberId, Long sellerId) {
         LocalDateTime now = LocalDateTime.now();
         ChatRoom room = chatRoomRepository.save(ChatRoom.product(memberId, sellerId));
-        participantRepository.save(new ChatRoomParticipant(room, memberId, ParticipantRole.BUYER, now));
-        addParticipantIfAbsent(room, sellerId, ParticipantRole.SELLER, now);
+        participantRepository.save(ChatRoomParticipant.join(room, memberId, ParticipantRole.BUYER, now));
+        participantRepository.save(ChatRoomParticipant.join(room, sellerId, ParticipantRole.SELLER, now));
         return room;
     }
 
@@ -135,7 +135,7 @@ public class ChatRoomService {
 
     private void addParticipantIfAbsent(ChatRoom room, Long memberId, ParticipantRole role, LocalDateTime now) {
         if (!participantRepository.existsByChatRoomIdAndMemberIdAndLeftAtIsNull(room.getId(), memberId)) {
-            participantRepository.save(new ChatRoomParticipant(room, memberId, role, now));
+            participantRepository.save(ChatRoomParticipant.join(room, memberId, role, now));
         }
     }
 
@@ -153,7 +153,7 @@ public class ChatRoomService {
 
     private void validateProductRoomRequester(Long memberId, Long sellerId) {
         if (memberId.equals(sellerId)) {
-            throw new ChatRoomException(ChatRoomErrorCode.INVALID_MEMBER);
+            throw new ChatRoomException(ChatRoomErrorCode.SELF_PRODUCT_CHAT_ROOM_NOT_ALLOWED);
         }
     }
 

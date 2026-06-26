@@ -11,6 +11,7 @@ public enum ChatRoomErrorCode implements ErrorCode {
     CHAT_ROOM_NOT_FOUND(HttpStatus.NOT_FOUND, "Chat room not found."),
     INVALID_MEMBER(HttpStatus.BAD_REQUEST, "Member information is invalid."),
     INVALID_ROOM_TYPE(HttpStatus.BAD_REQUEST, "Chat room type is invalid."),
+    SELF_PRODUCT_CHAT_ROOM_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "Cannot create a chat room with yourself."),
     PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "Product not found."),
     ACTIVE_CS_ROOM_EXISTS(HttpStatus.CONFLICT, "An active CS chat room already exists."),
     CS_ROOM_NOT_WAITING(HttpStatus.CONFLICT, "CS chat room is not waiting."),

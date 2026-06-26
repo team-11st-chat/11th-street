@@ -50,10 +50,14 @@ public class ChatRoomParticipant {
     @Column(name = "left_at")
     private LocalDateTime leftAt;
 
-    public ChatRoomParticipant(ChatRoom chatRoom, Long memberId, ParticipantRole participantRole, LocalDateTime joinedAt) {
+    private ChatRoomParticipant(ChatRoom chatRoom, Long memberId, ParticipantRole participantRole, LocalDateTime joinedAt) {
         this.chatRoom = chatRoom;
         this.memberId = memberId;
         this.participantRole = participantRole;
         this.joinedAt = joinedAt;
+    }
+
+    public static ChatRoomParticipant join(ChatRoom chatRoom, Long memberId, ParticipantRole participantRole, LocalDateTime joinedAt) {
+        return new ChatRoomParticipant(chatRoom, memberId, participantRole, joinedAt);
     }
 }

@@ -3,12 +3,15 @@ package com.elevenst.realtimechat.domain.chatroom.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.elevenst.realtimechat.domain.chatroom.dto.ChatRoomResponse;
 import com.elevenst.realtimechat.domain.chatroom.entity.ChatRoom;
+import com.elevenst.realtimechat.domain.chatroom.entity.ChatRoomParticipant;
 import com.elevenst.realtimechat.domain.chatroom.entity.ChatRoomType;
 import com.elevenst.realtimechat.domain.chatroom.entity.CsStatus;
 import com.elevenst.realtimechat.domain.chatroom.exception.ChatRoomException;
@@ -94,10 +97,35 @@ class ChatRoomServiceTest {
 
         assertThatThrownBy(() -> chatRoomService.createProductRoom(sellerId, productId))
                 .isInstanceOf(ChatRoomException.class)
-                .hasMessage("Member information is invalid.");
+                .hasMessage("Cannot create a chat room with yourself.");
 
         verify(lockManager, never()).tryLock(any());
         verify(chatRoomRepository, never()).save(any(ChatRoom.class));
+    }
+
+    @Test
+    void createProductRoom_savesParticipantsWithoutDuplicateLookupWhenRoomIsNew() {
+        Long buyerId = 1L;
+        Long sellerId = 2L;
+        Long productId = 100L;
+        ChatRoom newRoom = ChatRoom.product(buyerId, sellerId);
+
+        when(memberRepository.existsById(buyerId)).thenReturn(true);
+        when(productCatalogReader.getProductSeller(productId))
+                .thenReturn(new ProductSellerSnapshot(productId, sellerId));
+        when(lockManager.tryLock("lock:chatroom:product:" + sellerId + ":" + buyerId)).thenReturn(true);
+        when(chatRoomRepository.findByRoomTypeAndSellerIdAndCreatedByMemberId(
+                ChatRoomType.PRODUCT,
+                sellerId,
+                buyerId
+        )).thenReturn(Optional.empty());
+        when(chatRoomRepository.save(any(ChatRoom.class))).thenReturn(newRoom);
+
+        ChatRoomResponse response = chatRoomService.createProductRoom(buyerId, productId);
+
+        assertThat(response.sellerId()).isEqualTo(sellerId);
+        verify(participantRepository, never()).existsByChatRoomIdAndMemberIdAndLeftAtIsNull(any(), eq(sellerId));
+        verify(participantRepository, times(2)).save(any(ChatRoomParticipant.class));
     }
 
     @Test
