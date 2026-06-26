@@ -3,6 +3,7 @@ package com.elevenst.realtimechat.global.config;
 import com.elevenst.realtimechat.domain.message.service.RedisChatMessagePublisher;
 import com.elevenst.realtimechat.domain.message.service.RedisChatMessageSubscriber;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -11,6 +12,7 @@ import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 
 @Configuration
 @RequiredArgsConstructor
+@ConditionalOnProperty(prefix = "app.redis.pubsub", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class RedisPubSubConfig {
 
     private final RedisChatMessageSubscriber redisChatMessageSubscriber;
