@@ -23,10 +23,6 @@ public class TimeSaleOrderFacade {
     private final IdempotencyManager idempotencyManager;
 
     public TimeSaleOrderResponse orderTimeSale(Long memberId, Long timeSaleId, String requestId, TimeSaleOrderRequest request) {
-        if (!idempotencyManager.checkAndSet(requestId, REQUEST_ID_TTL_SECONDS)) {
-            throw new TimeSaleException(TimeSaleErrorCode.TIME_SALE_003);
-        }
-
         String lockKey = TIME_SALE_LOCK_KEY_PREFIX + timeSaleId;
         boolean locked = lockManager.tryLock(lockKey);
         if (!locked) {
@@ -34,6 +30,9 @@ public class TimeSaleOrderFacade {
         }
 
         try {
+            if (!idempotencyManager.checkAndSet(requestId, REQUEST_ID_TTL_SECONDS)) {
+                throw new TimeSaleException(TimeSaleErrorCode.TIME_SALE_003);
+            }
             return timeSaleOrderService.orderTimeSale(memberId, timeSaleId, requestId, request);
         } finally {
             lockManager.unlock(lockKey);

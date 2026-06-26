@@ -46,12 +46,14 @@ class TimeSaleOrderFacadeTest {
     }
 
     @Test
-    @DisplayName("Request-ID가 중복이면 Lock 획득 전에 타임세일 중복 주문 예외를 반환한다")
-    void duplicatedRequestIdIsRejectedBeforeLock() {
+    @DisplayName("Lock 획득 후 Request-ID가 중복이면 타임세일 중복 주문 예외를 반환하고 Lock을 해제한다")
+    void duplicatedRequestIdIsRejectedInsideLock() {
         Long memberId = 1L;
         Long timeSaleId = 10L;
         String requestId = "request-1";
         TimeSaleOrderRequest request = new TimeSaleOrderRequest(1);
+        String lockKey = "lock:timesale:" + timeSaleId;
+        when(lockManager.tryLock(lockKey)).thenReturn(true);
         when(idempotencyManager.checkAndSet(requestId, 10)).thenReturn(false);
 
         assertThatThrownBy(() -> timeSaleOrderFacade.orderTimeSale(memberId, timeSaleId, requestId, request))
@@ -59,20 +61,18 @@ class TimeSaleOrderFacadeTest {
                 .extracting(exception -> ((TimeSaleException) exception).getErrorCode())
                 .isEqualTo(TimeSaleErrorCode.TIME_SALE_003);
 
-        verify(lockManager, never()).tryLock("lock:timesale:" + timeSaleId);
         verify(timeSaleOrderService, never()).orderTimeSale(memberId, timeSaleId, requestId, request);
-        verify(lockManager, never()).unlock("lock:timesale:" + timeSaleId);
+        verify(lockManager).unlock(lockKey);
     }
 
     @Test
-    @DisplayName("타임세일 Lock 획득에 실패하면 Fail-Closed로 주문 생성을 차단한다")
+    @DisplayName("타임세일 Lock 획득에 실패하면 멱등성 키를 선점하지 않고 Fail-Closed로 주문 생성을 차단한다")
     void lockFailureIsRejectedFailClosed() {
         Long memberId = 1L;
         Long timeSaleId = 10L;
         String requestId = "request-1";
         TimeSaleOrderRequest request = new TimeSaleOrderRequest(1);
         String lockKey = "lock:timesale:" + timeSaleId;
-        when(idempotencyManager.checkAndSet(requestId, 10)).thenReturn(true);
         when(lockManager.tryLock(lockKey)).thenReturn(false);
 
         assertThatThrownBy(() -> timeSaleOrderFacade.orderTimeSale(memberId, timeSaleId, requestId, request))
@@ -80,6 +80,7 @@ class TimeSaleOrderFacadeTest {
                 .extracting(exception -> ((BusinessException) exception).getErrorCode())
                 .isEqualTo(CommonErrorCode.SERVICE_UNAVAILABLE);
 
+        verify(idempotencyManager, never()).checkAndSet(requestId, 10);
         verify(timeSaleOrderService, never()).orderTimeSale(memberId, timeSaleId, requestId, request);
         verify(lockManager, never()).unlock(lockKey);
     }
@@ -101,16 +102,16 @@ class TimeSaleOrderFacadeTest {
                 LocalDateTime.now()
         );
         String lockKey = "lock:timesale:" + timeSaleId;
-        when(idempotencyManager.checkAndSet(requestId, 10)).thenReturn(true);
         when(lockManager.tryLock(lockKey)).thenReturn(true);
+        when(idempotencyManager.checkAndSet(requestId, 10)).thenReturn(true);
         when(timeSaleOrderService.orderTimeSale(memberId, timeSaleId, requestId, request)).thenReturn(response);
 
         TimeSaleOrderResponse result = timeSaleOrderFacade.orderTimeSale(memberId, timeSaleId, requestId, request);
 
         assertThat(result).isEqualTo(response);
         InOrder inOrder = inOrder(idempotencyManager, lockManager, timeSaleOrderService);
-        inOrder.verify(idempotencyManager).checkAndSet(requestId, 10);
         inOrder.verify(lockManager).tryLock(lockKey);
+        inOrder.verify(idempotencyManager).checkAndSet(requestId, 10);
         inOrder.verify(timeSaleOrderService).orderTimeSale(memberId, timeSaleId, requestId, request);
         inOrder.verify(lockManager).unlock(lockKey);
     }
