@@ -35,7 +35,7 @@ AND p.category_id = 2
 
 ```sql
 ALTER TABLE product
-    ADD COLUMN search_sort_order TINYINT NOT NULL DEFAULT 0;
+    ADD COLUMN search_sort_order INT NOT NULL DEFAULT 0;
 
 UPDATE product
 SET search_sort_order = CASE WHEN sale_status = 'SOLD_OUT' THEN 1 ELSE 0 END;
@@ -91,5 +91,5 @@ The original index `(sale_status, category_id, name)` did not match the search s
 
 - Read benefit: removes filesort for the measured first-page search scenarios and lets MySQL scan in response order.
 - Write cost: product inserts and sale-status changes maintain one small integer column and two secondary indexes.
-- Storage cost: one `TINYINT` column plus two product-table secondary indexes.
+- Storage cost: one `INT` column plus two product-table secondary indexes.
 - Keyword limitation: `%keyword%` matching is still a post-filter. Full-text or n-gram search would be a separate search-quality and indexing decision.

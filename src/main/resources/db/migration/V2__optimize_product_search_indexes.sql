@@ -3,7 +3,7 @@
 -- SOLD_OUT-last ordering used by the search query.
 
 ALTER TABLE product
-    ADD COLUMN search_sort_order TINYINT NOT NULL DEFAULT 0;
+    ADD COLUMN search_sort_order INT NOT NULL DEFAULT 0;
 
 UPDATE product
 SET search_sort_order = CASE WHEN sale_status = 'SOLD_OUT' THEN 1 ELSE 0 END;
