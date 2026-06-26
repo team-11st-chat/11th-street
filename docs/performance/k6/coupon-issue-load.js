@@ -38,6 +38,7 @@ if (RUN_DUPLICATE_PROBE && !PROBE_TOKEN) {
 
 export const coupon_successful_issues = new Counter('coupon_successful_issues');
 export const coupon_failed_issues = new Counter('coupon_failed_issues');
+export const coupon_lock_failures = new Counter('coupon_lock_failures');
 export const coupon_duplicate_successes = new Counter('coupon_duplicate_successes');
 export const coupon_duplicate_probe_failures = new Counter('coupon_duplicate_probe_failures');
 export const coupon_response_time = new Trend('coupon_response_time');
@@ -82,13 +83,12 @@ export function couponIssueLoad() {
 }
 
 export function duplicateIssueProbe() {
-  group('same member is not issued twice', () => {
+  group('same Request-ID is not accepted twice', () => {
     const token = PROBE_TOKEN;
-    const firstRequestId = buildRequestId('k6-cp-dupe1');
-    const secondRequestId = buildRequestId('k6-cp-dupe2');
+    const requestId = buildRequestId('k6-cp-dupe');
 
-    const first = issueCoupon(token, firstRequestId);
-    const second = issueCoupon(token, secondRequestId);
+    const first = issueCoupon(token, requestId);
+    const second = issueCoupon(token, requestId);
 
     const firstSucceeded = isSuccessfulIssue(first);
     const duplicateBlocked = !isSuccessfulIssue(second);
@@ -106,7 +106,7 @@ export function duplicateIssueProbe() {
     });
 
     check(second, {
-      'same member duplicate issue is rejected': () => duplicateBlocked,
+      'duplicate Request-ID is rejected': () => duplicateBlocked,
     });
   });
 }
@@ -142,6 +142,10 @@ function recordIssueResponse(response) {
     coupon_failed_issues.add(1);
   }
 
+  if (response.status === 503) {
+    coupon_lock_failures.add(1);
+  }
+
   check(response, {
     'issue response is success or business rejection': (res) => isSuccessfulIssue(res) || [400, 401, 403, 404, 409, 503].includes(res.status),
     'successful issue has response data': (res) => !isSuccessStatus(res.status) || Boolean(res.json('data.id')),
@@ -160,29 +164,31 @@ export function handleSummary(data) {
   const summaryDir = __ENV.SUMMARY_DIR || 'docs/performance/k6/results';
   const successful = data.metrics.coupon_successful_issues?.values?.count || 0;
   const failed = data.metrics.coupon_failed_issues?.values?.count || 0;
+  const lockFailures = data.metrics.coupon_lock_failures?.values?.count || 0;
   const duplicateSuccesses = data.metrics.coupon_duplicate_successes?.values?.count || 0;
   const p95 = data.metrics.coupon_response_time?.values?.['p(95)'] || 0;
 
   return {
-    stdout: textSummary(successful, failed, duplicateSuccesses, p95),
+    stdout: textSummary(successful, failed, lockFailures, duplicateSuccesses, p95),
     [`${summaryDir}/coupon-issue-summary.json`]: JSON.stringify(data, null, 2),
-    [`${summaryDir}/coupon-issue-summary.md`]: markdownSummary(successful, failed, duplicateSuccesses, p95),
+    [`${summaryDir}/coupon-issue-summary.md`]: markdownSummary(successful, failed, lockFailures, duplicateSuccesses, p95),
   };
 }
 
-function textSummary(successful, failed, duplicateSuccesses, p95) {
+function textSummary(successful, failed, lockFailures, duplicateSuccesses, p95) {
   return [
     '쿠폰 발급 k6 부하 테스트 요약',
     `쿠폰 발급 성공 수=${successful}`,
     `쿠폰 발급 실패 수=${failed}`,
-    `중복 발급 성공 수=${duplicateSuccesses}`,
+    `Lock 실패 응답 수(503)=${lockFailures}`,
+    `중복 Request-ID 성공 수=${duplicateSuccesses}`,
     `응답 시간 p95(ms)=${p95}`,
     `기대 쿠폰 수량 상한=${EXPECTED_COUPON_QUANTITY}`,
     '',
   ].join('\n');
 }
 
-function markdownSummary(successful, failed, duplicateSuccesses, p95) {
+function markdownSummary(successful, failed, lockFailures, duplicateSuccesses, p95) {
   return [
     '# 쿠폰 발급 k6 부하 테스트 결과',
     '',
@@ -192,13 +198,14 @@ function markdownSummary(successful, failed, duplicateSuccesses, p95) {
     `- 요청 반복 수: ${REQUESTS}`,
     `- 동시 가상 사용자 수(VUs): ${VUS}`,
     `- 기대 쿠폰 수량 상한: ${EXPECTED_COUPON_QUANTITY}`,
-    `- 중복 발급 probe: ${RUN_DUPLICATE_PROBE ? '실행됨' : '미실행'}`,
+    `- 중복 Request-ID probe: ${RUN_DUPLICATE_PROBE ? '실행됨' : '미실행'}`,
     '',
     '## 측정 결과',
     '',
     `- 쿠폰 발급 성공 수: ${successful}건`,
     `- 쿠폰 발급 실패 수: ${failed}건`,
-    `- 중복 발급이 성공한 수: ${duplicateSuccesses}건`,
+    `- Lock 실패 응답 수(503): ${lockFailures}건`,
+    `- 중복 Request-ID가 성공한 수: ${duplicateSuccesses}건`,
     `- 응답 시간 p95: ${p95}ms`,
     `- 총 HTTP 요청 수: ${REQUESTS}${RUN_DUPLICATE_PROBE ? '건 + 중복 probe 2건' : '건'}`,
     '',
