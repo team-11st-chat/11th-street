@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ChatRoomService {
 
     private static final List<CsStatus> ACTIVE_CS_STATUSES = List.of(CsStatus.WAITING, CsStatus.IN_PROGRESS);
+    private static final int MAX_MESSAGE_HISTORY_SIZE = 100;
 
     private final ChatRoomRepository chatRoomRepository;
     private final ChatRoomParticipantRepository participantRepository;
@@ -83,8 +84,8 @@ public class ChatRoomService {
         ChatRoom room = getRoom(chatRoomId);
         LocalDateTime now = LocalDateTime.now();
         participantRepository.findByChatRoomIdAndMemberId(room.getId(), memberId)
-                .map(existingParticipant -> rejoin(existingParticipant, now))
-                .orElseGet(() -> createParticipant(room, memberId, resolveParticipantRole(room, memberId), now));
+                .map(existingParticipant -> rejoin(room, existingParticipant, now))
+                .orElseGet(() -> createParticipant(room, memberId, resolveJoinParticipantRole(room, memberId), now));
 
         chatMessageService.recordParticipantJoined(room, memberId, now);
         return ChatRoomResponse.from(room);
@@ -192,19 +193,29 @@ public class ChatRoomService {
         return participantRepository.save(ChatRoomParticipant.join(room, memberId, role, now));
     }
 
-    private ChatRoomParticipant rejoin(ChatRoomParticipant participant, LocalDateTime now) {
+    private ChatRoomParticipant rejoin(ChatRoom room, ChatRoomParticipant participant, LocalDateTime now) {
         if (participant.getLeftAt() == null) {
             throw new ChatRoomException(ChatRoomErrorCode.ALREADY_JOINED);
         }
+        resolveJoinParticipantRole(room, participant.getMemberId());
         participant.rejoin(now);
         return participant;
     }
 
-    private ParticipantRole resolveParticipantRole(ChatRoom room, Long memberId) {
+    private ParticipantRole resolveJoinParticipantRole(ChatRoom room, Long memberId) {
         if (room.isProductRoom()) {
-            return room.getSellerId().equals(memberId) ? ParticipantRole.SELLER : ParticipantRole.BUYER;
+            if (room.getCreatedByMemberId().equals(memberId)) {
+                return ParticipantRole.BUYER;
+            }
+            if (room.getSellerId().equals(memberId)) {
+                return ParticipantRole.SELLER;
+            }
+            throw new ChatRoomException(ChatRoomErrorCode.ACCESS_DENIED);
         }
-        return ParticipantRole.CUSTOMER;
+        if (room.isCsRoom() && room.getCreatedByMemberId().equals(memberId)) {
+            return ParticipantRole.CUSTOMER;
+        }
+        throw new ChatRoomException(ChatRoomErrorCode.ACCESS_DENIED);
     }
 
     private void validateParticipant(ChatRoom room, Long memberId) {
@@ -232,7 +243,7 @@ public class ChatRoomService {
     }
 
     private void validateMessageHistorySize(int size) {
-        if (size <= 0) {
+        if (size <= 0 || size > MAX_MESSAGE_HISTORY_SIZE) {
             throw new ChatRoomException(ChatRoomErrorCode.INVALID_MESSAGE_HISTORY_SIZE);
         }
     }
