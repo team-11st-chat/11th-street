@@ -32,9 +32,14 @@ if (!tokens || tokens.length === 0) {
   throw new Error('AUTH_TOKENS_FILE or AUTH_TOKEN is required.');
 }
 
+if (RUN_DUPLICATE_PROBE && !PROBE_TOKEN) {
+  throw new Error('PROBE_AUTH_TOKEN is required when RUN_DUPLICATE_PROBE is true.');
+}
+
 export const coupon_successful_issues = new Counter('coupon_successful_issues');
 export const coupon_failed_issues = new Counter('coupon_failed_issues');
 export const coupon_duplicate_successes = new Counter('coupon_duplicate_successes');
+export const coupon_duplicate_probe_failures = new Counter('coupon_duplicate_probe_failures');
 export const coupon_response_time = new Trend('coupon_response_time');
 
 const scenarios = {
@@ -63,6 +68,7 @@ export const options = {
   thresholds: {
     coupon_successful_issues: [`count<=${EXPECTED_COUPON_QUANTITY}`],
     coupon_duplicate_successes: ['count==0'],
+    coupon_duplicate_probe_failures: ['count==0'],
     checks: ['rate>0.95'],
   },
 };
@@ -77,20 +83,26 @@ export function couponIssueLoad() {
 
 export function duplicateIssueProbe() {
   group('same member is not issued twice', () => {
-    const token = PROBE_TOKEN || tokens[0];
+    const token = PROBE_TOKEN;
     const firstRequestId = buildRequestId('k6-cp-dupe1');
     const secondRequestId = buildRequestId('k6-cp-dupe2');
 
     const first = issueCoupon(token, firstRequestId);
     const second = issueCoupon(token, secondRequestId);
 
-    const duplicateBlocked = second.status !== 201;
+    const firstSucceeded = isSuccessfulIssue(first);
+    const duplicateBlocked = !isSuccessfulIssue(second);
+
+    if (!firstSucceeded) {
+      coupon_duplicate_probe_failures.add(1);
+    }
+
     if (!duplicateBlocked) {
       coupon_duplicate_successes.add(1);
     }
 
     check(first, {
-      'first duplicate probe request reaches API': (res) => [201, 400, 401, 403, 404, 409, 503].includes(res.status),
+      'first duplicate probe request succeeds': () => firstSucceeded,
     });
 
     check(second, {

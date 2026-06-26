@@ -32,9 +32,14 @@ if (!tokens || tokens.length === 0) {
   throw new Error('AUTH_TOKENS_FILE or AUTH_TOKEN is required.');
 }
 
+if (RUN_DUPLICATE_PROBE && !PROBE_TOKEN) {
+  throw new Error('PROBE_AUTH_TOKEN is required when RUN_DUPLICATE_PROBE is true.');
+}
+
 export const timesale_successful_orders = new Counter('timesale_successful_orders');
 export const timesale_failed_orders = new Counter('timesale_failed_orders');
 export const timesale_duplicate_successes = new Counter('timesale_duplicate_successes');
+export const timesale_duplicate_probe_failures = new Counter('timesale_duplicate_probe_failures');
 export const timesale_response_time = new Trend('timesale_response_time');
 
 const scenarios = {
@@ -63,6 +68,7 @@ export const options = {
   thresholds: {
     timesale_successful_orders: [`count<=${EXPECTED_STOCK}`],
     timesale_duplicate_successes: ['count==0'],
+    timesale_duplicate_probe_failures: ['count==0'],
     checks: ['rate>0.95'],
   },
 };
@@ -77,19 +83,25 @@ export function orderLoad() {
 
 export function duplicateRequestProbe() {
   group('same Request-ID is not accepted twice', () => {
-    const token = PROBE_TOKEN || tokens[0];
+    const token = PROBE_TOKEN;
     const requestId = buildRequestId('k6-ts-dupe');
 
     const first = placeOrder(token, requestId);
     const second = placeOrder(token, requestId);
 
-    const duplicateBlocked = second.status !== 201;
+    const firstSucceeded = isSuccessfulOrder(first);
+    const duplicateBlocked = !isSuccessfulOrder(second);
+
+    if (!firstSucceeded) {
+      timesale_duplicate_probe_failures.add(1);
+    }
+
     if (!duplicateBlocked) {
       timesale_duplicate_successes.add(1);
     }
 
     check(first, {
-      'first duplicate probe request reaches API': (res) => [201, 400, 401, 403, 404, 409, 503].includes(res.status),
+      'first duplicate probe request succeeds': () => firstSucceeded,
     });
 
     check(second, {
@@ -122,7 +134,7 @@ function placeOrder(token, requestId) {
 function recordOrderResponse(response) {
   timesale_response_time.add(response.timings.duration);
 
-  const succeeded = response.status === 201;
+  const succeeded = isSuccessfulOrder(response);
 
   if (succeeded) {
     timesale_successful_orders.add(1);
@@ -132,8 +144,16 @@ function recordOrderResponse(response) {
 
   check(response, {
     'order response is created or business rejection': (res) => [201, 400, 401, 403, 404, 409, 503].includes(res.status),
-    'successful order has response data': (res) => res.status !== 201 || Boolean(res.json('data.id')),
+    'successful order has response data': (res) => res.status !== 201 || hasResponseDataId(res),
   });
+}
+
+function isSuccessfulOrder(response) {
+  return response.status === 201 && hasResponseDataId(response);
+}
+
+function hasResponseDataId(response) {
+  return Boolean(response.json('data.id'));
 }
 
 export function handleSummary(data) {

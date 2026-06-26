@@ -46,7 +46,7 @@ $env:VUS = "500"
 $env:REQUESTS = "500"
 $env:RUN_ID = "mvp3-trackb-timesale-001"
 $env:RUN_DUPLICATE_PROBE = "true"
-$env:PROBE_AUTH_TOKEN = "<optional-dedicated-buyer-token>"
+$env:PROBE_AUTH_TOKEN = "<dedicated-buyer-token-not-used-by-main-load>"
 k6 run docs/performance/k6/timesale-order-load.js
 ```
 
@@ -56,12 +56,14 @@ Collected metrics:
 - `timesale_failed_orders`
 - `timesale_response_time`
 - `timesale_duplicate_successes`
+- `timesale_duplicate_probe_failures`
 
 Automatic guards:
 
 - successful orders must not exceed `EXPECTED_STOCK`
 - successful order responses must contain `data.id`
 - duplicate `Request-ID` probe success count must remain `0` when enabled
+- duplicate probe first request must succeed when enabled
 - response time is collected but not thresholded because the policy is still undecided
 
 ## Coupon Issue
@@ -74,7 +76,7 @@ $env:VUS = "500"
 $env:REQUESTS = "500"
 $env:RUN_ID = "mvp3-trackb-coupon-001"
 $env:RUN_DUPLICATE_PROBE = "true"
-$env:PROBE_AUTH_TOKEN = "<optional-dedicated-buyer-token>"
+$env:PROBE_AUTH_TOKEN = "<dedicated-buyer-token-not-used-by-main-load>"
 k6 run docs/performance/k6/coupon-issue-load.js
 ```
 
@@ -84,12 +86,14 @@ Collected metrics:
 - `coupon_failed_issues`
 - `coupon_response_time`
 - `coupon_duplicate_successes`
+- `coupon_duplicate_probe_failures`
 
 Automatic guards:
 
 - successful issues must not exceed `EXPECTED_COUPON_QUANTITY`
 - successful issue responses must contain `data.id`
 - same-member duplicate issue probe success count must remain `0` when enabled
+- duplicate probe first request must succeed when enabled
 - response time is collected but not thresholded because the policy is still undecided
 
 ## Summary Output
