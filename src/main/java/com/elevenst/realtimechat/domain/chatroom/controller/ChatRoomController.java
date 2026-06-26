@@ -3,16 +3,19 @@ package com.elevenst.realtimechat.domain.chatroom.controller;
 import com.elevenst.realtimechat.domain.chatroom.dto.ChatRoomResponse;
 import com.elevenst.realtimechat.domain.chatroom.dto.ProductChatRoomCreateRequest;
 import com.elevenst.realtimechat.domain.chatroom.service.ChatRoomService;
+import com.elevenst.realtimechat.domain.message.dto.ChatMessageHistoryResponse;
 import com.elevenst.realtimechat.global.response.ApiResponse;
 import com.elevenst.realtimechat.global.security.AuthenticatedMember;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -55,6 +58,41 @@ public class ChatRoomController {
         return ApiResponse.success(
                 "Product chat room found.",
                 chatRoomService.getProductRoom(member.memberId(), chatRoomId)
+        );
+    }
+
+    @GetMapping("/{chatRoomId}/messages")
+    public ApiResponse<ChatMessageHistoryResponse> getMessages(
+            @AuthenticationPrincipal AuthenticatedMember member,
+            @PathVariable Long chatRoomId,
+            @RequestParam(required = false) Long cursor,
+            @RequestParam(defaultValue = "30") int size
+    ) {
+        return ApiResponse.success(
+                "Chat messages found.",
+                chatRoomService.getMessages(member.memberId(), chatRoomId, cursor, size)
+        );
+    }
+
+    @PostMapping("/{chatRoomId}/participants/me")
+    public ApiResponse<ChatRoomResponse> join(
+            @AuthenticationPrincipal AuthenticatedMember member,
+            @PathVariable Long chatRoomId
+    ) {
+        return ApiResponse.success(
+                "Chat room participant joined.",
+                chatRoomService.join(member.memberId(), chatRoomId)
+        );
+    }
+
+    @DeleteMapping("/{chatRoomId}/participants/me")
+    public ApiResponse<ChatRoomResponse> leave(
+            @AuthenticationPrincipal AuthenticatedMember member,
+            @PathVariable Long chatRoomId
+    ) {
+        return ApiResponse.success(
+                "Chat room participant left.",
+                chatRoomService.leave(member.memberId(), chatRoomId)
         );
     }
 

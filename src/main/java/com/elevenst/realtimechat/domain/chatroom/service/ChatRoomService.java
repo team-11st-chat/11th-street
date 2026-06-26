@@ -12,6 +12,8 @@ import com.elevenst.realtimechat.domain.chatroom.repository.ChatRoomParticipantR
 import com.elevenst.realtimechat.domain.chatroom.repository.ChatRoomRepository;
 import com.elevenst.realtimechat.domain.member.entity.MemberRole;
 import com.elevenst.realtimechat.domain.member.repository.MemberRepository;
+import com.elevenst.realtimechat.domain.message.dto.ChatMessageHistoryResponse;
+import com.elevenst.realtimechat.domain.message.service.ChatMessageService;
 import com.elevenst.realtimechat.global.support.LockManager;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -29,6 +31,7 @@ public class ChatRoomService {
     private final ChatRoomParticipantRepository participantRepository;
     private final MemberRepository memberRepository;
     private final ChatRoomProductCatalogReader productCatalogReader;
+    private final ChatMessageService chatMessageService;
     private final LockManager lockManager;
 
     @Transactional
@@ -62,6 +65,43 @@ public class ChatRoomService {
     public ChatRoomResponse getProductRoom(Long memberId, Long chatRoomId) {
         ChatRoom room = getRoom(chatRoomId, ChatRoomType.PRODUCT);
         validateParticipant(room, memberId);
+        return ChatRoomResponse.from(room);
+    }
+
+    @Transactional(readOnly = true)
+    public ChatMessageHistoryResponse getMessages(Long memberId, Long chatRoomId, Long cursor, int size) {
+        validateMessageHistorySize(size);
+        ChatRoom room = getRoom(chatRoomId);
+        validateParticipant(room, memberId);
+        return chatMessageService.getPreviousMessages(room.getId(), cursor, size);
+    }
+
+    @Transactional
+    public ChatRoomResponse join(Long memberId, Long chatRoomId) {
+        validateMemberExists(memberId);
+
+        ChatRoom room = getRoom(chatRoomId);
+        LocalDateTime now = LocalDateTime.now();
+        participantRepository.findByChatRoomIdAndMemberId(room.getId(), memberId)
+                .map(existingParticipant -> rejoin(existingParticipant, now))
+                .orElseGet(() -> createParticipant(room, memberId, resolveParticipantRole(room, memberId), now));
+
+        chatMessageService.recordParticipantJoined(room, memberId, now);
+        return ChatRoomResponse.from(room);
+    }
+
+    @Transactional
+    public ChatRoomResponse leave(Long memberId, Long chatRoomId) {
+        ChatRoom room = getRoom(chatRoomId);
+        ChatRoomParticipant participant = participantRepository.findByChatRoomIdAndMemberId(room.getId(), memberId)
+                .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.NOT_JOINED));
+        if (participant.getLeftAt() != null) {
+            throw new ChatRoomException(ChatRoomErrorCode.NOT_JOINED);
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        participant.leave(now);
+        chatMessageService.recordParticipantLeft(room, memberId, now);
         return ChatRoomResponse.from(room);
     }
 
@@ -128,6 +168,11 @@ public class ChatRoomService {
                 .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHAT_ROOM_NOT_FOUND));
     }
 
+    private ChatRoom getRoom(Long chatRoomId) {
+        return chatRoomRepository.findById(chatRoomId)
+                .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHAT_ROOM_NOT_FOUND));
+    }
+
     private ChatRoom getRoomWithLock(Long chatRoomId, ChatRoomType roomType) {
         return chatRoomRepository.findByIdAndRoomTypeWithLock(chatRoomId, roomType)
                 .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHAT_ROOM_NOT_FOUND));
@@ -135,8 +180,31 @@ public class ChatRoomService {
 
     private void addParticipantIfAbsent(ChatRoom room, Long memberId, ParticipantRole role, LocalDateTime now) {
         if (!participantRepository.existsByChatRoomIdAndMemberIdAndLeftAtIsNull(room.getId(), memberId)) {
-            participantRepository.save(ChatRoomParticipant.join(room, memberId, role, now));
+            participantRepository.findByChatRoomIdAndMemberId(room.getId(), memberId)
+                    .ifPresentOrElse(
+                            participant -> participant.rejoin(now),
+                            () -> createParticipant(room, memberId, role, now)
+                    );
         }
+    }
+
+    private ChatRoomParticipant createParticipant(ChatRoom room, Long memberId, ParticipantRole role, LocalDateTime now) {
+        return participantRepository.save(ChatRoomParticipant.join(room, memberId, role, now));
+    }
+
+    private ChatRoomParticipant rejoin(ChatRoomParticipant participant, LocalDateTime now) {
+        if (participant.getLeftAt() == null) {
+            throw new ChatRoomException(ChatRoomErrorCode.ALREADY_JOINED);
+        }
+        participant.rejoin(now);
+        return participant;
+    }
+
+    private ParticipantRole resolveParticipantRole(ChatRoom room, Long memberId) {
+        if (room.isProductRoom()) {
+            return room.getSellerId().equals(memberId) ? ParticipantRole.SELLER : ParticipantRole.BUYER;
+        }
+        return ParticipantRole.CUSTOMER;
     }
 
     private void validateParticipant(ChatRoom room, Long memberId) {
@@ -160,6 +228,12 @@ public class ChatRoomService {
     private void acquireLock(String lockKey) {
         if (!lockManager.tryLock(lockKey)) {
             throw new ChatRoomException(ChatRoomErrorCode.LOCK_UNAVAILABLE);
+        }
+    }
+
+    private void validateMessageHistorySize(int size) {
+        if (size <= 0) {
+            throw new ChatRoomException(ChatRoomErrorCode.INVALID_MESSAGE_HISTORY_SIZE);
         }
     }
 
