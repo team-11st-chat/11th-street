@@ -10,7 +10,7 @@ import com.elevenst.realtimechat.global.security.token.TokenInvalidationRegistry
 import io.jsonwebtoken.JwtException;
 import java.util.List;
 import java.util.Map;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.simp.stomp.StompCommand;
@@ -25,6 +25,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 @Component
+@RequiredArgsConstructor
 public class StompJwtChannelInterceptor implements ChannelInterceptor {
 
     private static final String AUTHORIZATION_HEADER = "Authorization";
@@ -36,27 +37,6 @@ public class StompJwtChannelInterceptor implements ChannelInterceptor {
     private final AccessTokenBlacklist accessTokenBlacklist;
     private final TokenInvalidationRegistry tokenInvalidationRegistry;
     private final ChatRoomParticipantRepository participantRepository;
-
-    @Autowired
-    public StompJwtChannelInterceptor(
-            JwtTokenProvider jwtTokenProvider,
-            AccessTokenBlacklist accessTokenBlacklist,
-            TokenInvalidationRegistry tokenInvalidationRegistry,
-            ChatRoomParticipantRepository participantRepository
-    ) {
-        this.jwtTokenProvider = jwtTokenProvider;
-        this.accessTokenBlacklist = accessTokenBlacklist;
-        this.tokenInvalidationRegistry = tokenInvalidationRegistry;
-        this.participantRepository = participantRepository;
-    }
-
-    public StompJwtChannelInterceptor(
-            JwtTokenProvider jwtTokenProvider,
-            AccessTokenBlacklist accessTokenBlacklist,
-            TokenInvalidationRegistry tokenInvalidationRegistry
-    ) {
-        this(jwtTokenProvider, accessTokenBlacklist, tokenInvalidationRegistry, null);
-    }
 
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
@@ -163,7 +143,7 @@ public class StompJwtChannelInterceptor implements ChannelInterceptor {
     }
 
     private void validateChatRoomSubscription(StompHeaderAccessor accessor) {
-        if (accessor.getCommand() != StompCommand.SUBSCRIBE || participantRepository == null) {
+        if (accessor.getCommand() != StompCommand.SUBSCRIBE) {
             return;
         }
 

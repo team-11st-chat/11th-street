@@ -58,6 +58,10 @@ public class ChatMessageService {
         MessageType messageType = request.resolvedMessageType();
         ChatMessage message = chatMessageRepository
                 .findByChatRoomIdAndSenderIdAndClientMessageId(room.getId(), senderId, request.clientMessageId())
+                .map(existingMessage -> {
+                    publishAfterCommit(existingMessage);
+                    return existingMessage;
+                })
                 .orElseGet(() -> saveNewMessage(room, senderId, request, messageType));
 
         return ChatMessageResponse.from(message);
@@ -99,13 +103,15 @@ public class ChatMessageService {
             publishAfterCommit(savedMessage);
             return savedMessage;
         } catch (DataIntegrityViolationException exception) {
-            return chatMessageRepository
+            ChatMessage existingMessage = chatMessageRepository
                     .findByChatRoomIdAndSenderIdAndClientMessageId(
                             room.getId(),
                             senderId,
                             request.clientMessageId()
                     )
                     .orElseThrow(() -> exception);
+            publishAfterCommit(existingMessage);
+            return existingMessage;
         }
     }
 
