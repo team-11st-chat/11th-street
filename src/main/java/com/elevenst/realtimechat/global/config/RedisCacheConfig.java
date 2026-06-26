@@ -51,10 +51,20 @@ public class RedisCacheConfig {
 
         @Override
         public Validity validateSubClassName(DatabindContext context, JavaType baseType, String subClassName) {
-            if (subClassName.startsWith("com.elevenst.realtimechat.")
-                    || subClassName.startsWith("java.lang.")
-                    || subClassName.startsWith("java.util.")
-                    || subClassName.startsWith("java.math.")) {
+            if (subClassName.startsWith("com.elevenst.realtimechat.")) {
+                return Validity.ALLOWED;
+            }
+            if (subClassName.equals("java.math.BigDecimal")
+                    || subClassName.equals("java.lang.String")
+                    || subClassName.equals("java.lang.Long")
+                    || subClassName.equals("java.lang.Integer")
+                    || subClassName.equals("java.lang.Double")
+                    || subClassName.equals("java.lang.Boolean")
+                    || subClassName.equals("java.util.ArrayList")
+                    || subClassName.equals("java.util.LinkedList")
+                    || subClassName.equals("java.util.Collections$EmptyList")
+                    || subClassName.equals("java.util.Collections$UnmodifiableList")
+                    || subClassName.equals("java.util.Arrays$ArrayList")) {
                 return Validity.ALLOWED;
             }
             return Validity.DENIED;
