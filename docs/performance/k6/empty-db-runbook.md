@@ -195,7 +195,7 @@ $couponTokenFile = "$env:TEMP\11th-street-k6-coupon-$runSuffix.json"
 @{ tokens = $buyerTokens } | ConvertTo-Json | Set-Content -LiteralPath $timeSaleTokenFile -Encoding utf8
 @{ tokens = $buyerTokens } | ConvertTo-Json | Set-Content -LiteralPath $couponTokenFile -Encoding utf8
 
-[PSCustomObject]@{
+$setup = [PSCustomObject]@{
   RunSuffix = $runSuffix
   BuyerCount = $buyerCount
   TimeSaleId = $timeSaleId
@@ -203,9 +203,13 @@ $couponTokenFile = "$env:TEMP\11th-street-k6-coupon-$runSuffix.json"
   TimeSaleTokenFile = $timeSaleTokenFile
   CouponTokenFile = $couponTokenFile
 }
+
+$setupFile = "$env:TEMP\11th-street-k6-runbook-last.json"
+$setup | ConvertTo-Json | Set-Content -LiteralPath $setupFile -Encoding utf8
+$setup
 ```
 
-마지막에 출력되는 값을 다음 단계의 환경 변수에 사용한다.
+마지막에 출력되는 값을 다음 단계의 환경 변수에 사용한다. 같은 값은 `$env:TEMP\11th-street-k6-runbook-last.json`에도 저장되므로 권장 실행 방식에서 그대로 읽어 사용할 수 있다.
 
 ## 4. 타임세일 주문 k6 실행
 
@@ -245,8 +249,8 @@ $env:RUN_DUPLICATE_PROBE = "false"
 
 정상 기대 결과:
 
-- `successful_orders`가 `BuyerCount`와 같아야 한다.
-- `failed_orders`는 0이어야 한다.
+- `timesale_successful_orders`가 `BuyerCount`와 같아야 한다.
+- `timesale_failed_orders`는 0이어야 한다.
 - `timesale_successful_orders <= EXPECTED_STOCK` threshold가 통과해야 한다.
 - 결과 파일은 `docs/performance/k6/results/timesale-order-summary.md`에 기록된다.
 
@@ -301,10 +305,10 @@ $env:RUN_DUPLICATE_PROBE = "false"
 
 정상 기대 결과:
 
-- `successful_issues`가 `BuyerCount`와 같아야 한다.
-- `failed_issues`는 0이어야 한다.
+- `coupon_successful_issues`가 `BuyerCount`와 같아야 한다.
+- `coupon_failed_issues`는 0이어야 한다.
 - `coupon_successful_issues <= EXPECTED_COUPON_QUANTITY` threshold가 통과해야 한다.
-- 결과 파일은 `docs/performance/k6/results/coupon-issue-summary.md`에 기록된다.ㅁ
+- 결과 파일은 `docs/performance/k6/results/coupon-issue-summary.md`에 기록된다.
 
 DB 검증:
 

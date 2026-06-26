@@ -61,7 +61,7 @@ Automatic guards:
 
 - successful orders must not exceed `EXPECTED_STOCK`
 - successful order responses must contain `data.id`
-- duplicate `Request-ID` probe must not succeed twice when enabled
+- duplicate `Request-ID` probe success count must remain `0` when enabled
 - response time is collected but not thresholded because the policy is still undecided
 
 ## Coupon Issue
@@ -89,7 +89,7 @@ Automatic guards:
 
 - successful issues must not exceed `EXPECTED_COUPON_QUANTITY`
 - successful issue responses must contain `data.id`
-- same-member duplicate issue probe must not succeed twice when enabled
+- same-member duplicate issue probe success count must remain `0` when enabled
 - response time is collected but not thresholded because the policy is still undecided
 
 ## Summary Output

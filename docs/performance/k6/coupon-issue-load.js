@@ -62,6 +62,7 @@ export const options = {
   scenarios,
   thresholds: {
     coupon_successful_issues: [`count<=${EXPECTED_COUPON_QUANTITY}`],
+    coupon_duplicate_successes: ['count==0'],
     checks: ['rate>0.95'],
   },
 };
