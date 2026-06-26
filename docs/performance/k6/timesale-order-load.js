@@ -38,6 +38,7 @@ if (RUN_DUPLICATE_PROBE && !PROBE_TOKEN) {
 
 export const timesale_successful_orders = new Counter('timesale_successful_orders');
 export const timesale_failed_orders = new Counter('timesale_failed_orders');
+export const timesale_lock_failures = new Counter('timesale_lock_failures');
 export const timesale_duplicate_successes = new Counter('timesale_duplicate_successes');
 export const timesale_duplicate_probe_failures = new Counter('timesale_duplicate_probe_failures');
 export const timesale_response_time = new Trend('timesale_response_time');
@@ -142,6 +143,10 @@ function recordOrderResponse(response) {
     timesale_failed_orders.add(1);
   }
 
+  if (response.status === 503) {
+    timesale_lock_failures.add(1);
+  }
+
   check(response, {
     'order response is created or business rejection': (res) => [201, 400, 401, 403, 404, 409, 503].includes(res.status),
     'successful order has response data': (res) => res.status !== 201 || hasResponseDataId(res),
@@ -160,21 +165,23 @@ export function handleSummary(data) {
   const summaryDir = __ENV.SUMMARY_DIR || 'docs/performance/k6/results';
   const successful = data.metrics.timesale_successful_orders?.values?.count || 0;
   const failed = data.metrics.timesale_failed_orders?.values?.count || 0;
+  const lockFailures = data.metrics.timesale_lock_failures?.values?.count || 0;
   const duplicateSuccesses = data.metrics.timesale_duplicate_successes?.values?.count || 0;
   const p95 = data.metrics.timesale_response_time?.values?.['p(95)'] || 0;
 
   return {
-    stdout: textSummary(successful, failed, duplicateSuccesses, p95),
+    stdout: textSummary(successful, failed, lockFailures, duplicateSuccesses, p95),
     [`${summaryDir}/timesale-order-summary.json`]: JSON.stringify(data, null, 2),
-    [`${summaryDir}/timesale-order-summary.md`]: markdownSummary(successful, failed, duplicateSuccesses, p95),
+    [`${summaryDir}/timesale-order-summary.md`]: markdownSummary(successful, failed, lockFailures, duplicateSuccesses, p95),
   };
 }
 
-function textSummary(successful, failed, duplicateSuccesses, p95) {
+function textSummary(successful, failed, lockFailures, duplicateSuccesses, p95) {
   return [
     '타임세일 주문 k6 부하 테스트 요약',
     `주문 성공 수=${successful}`,
     `주문 실패 수=${failed}`,
+    `Lock 실패 응답 수(503)=${lockFailures}`,
     `중복 Request-ID 성공 수=${duplicateSuccesses}`,
     `응답 시간 p95(ms)=${p95}`,
     `기대 재고 상한=${EXPECTED_STOCK}`,
@@ -182,7 +189,7 @@ function textSummary(successful, failed, duplicateSuccesses, p95) {
   ].join('\n');
 }
 
-function markdownSummary(successful, failed, duplicateSuccesses, p95) {
+function markdownSummary(successful, failed, lockFailures, duplicateSuccesses, p95) {
   return [
     '# 타임세일 주문 k6 부하 테스트 결과',
     '',
@@ -198,6 +205,7 @@ function markdownSummary(successful, failed, duplicateSuccesses, p95) {
     '',
     `- 주문 성공 수: ${successful}건`,
     `- 주문 실패 수: ${failed}건`,
+    `- Lock 실패 응답 수(503): ${lockFailures}건`,
     `- 중복 Request-ID가 성공한 수: ${duplicateSuccesses}건`,
     `- 응답 시간 p95: ${p95}ms`,
     `- 총 HTTP 요청 수: ${REQUESTS}${RUN_DUPLICATE_PROBE ? '건 + 중복 probe 2건' : '건'}`,
