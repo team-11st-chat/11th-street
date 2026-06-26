@@ -61,6 +61,9 @@ jwt:
   refresh-token-validity-seconds: ${JWT_REFRESH_TOKEN_VALIDITY_SECONDS}
 
 app:
+  cache:
+    product-search:
+      mode: ${PRODUCT_SEARCH_CACHE_MODE:LOCAL}
   redis:
     key-prefix:
       cache: "${REDIS_CACHE_KEY_PREFIX:cache:v1:}"

@@ -12,11 +12,9 @@ import com.elevenst.realtimechat.domain.product.repository.CategoryRepository;
 import com.elevenst.realtimechat.domain.product.repository.ProductRepository;
 import com.elevenst.realtimechat.domain.search.service.SearchKeywordRecordCommand;
 import com.elevenst.realtimechat.domain.search.service.SearchKeywordRecorder;
-import com.elevenst.realtimechat.global.config.CacheConfig;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,16 +29,18 @@ public class ProductService {
     private final CategoryRepository categoryRepository;
     private final SearchKeywordRecorder searchKeywordRecorder;
     private final ProductSearchService productSearchService;
+    private final ProductSearchCacheProperties productSearchCacheProperties;
+    private final ProductSearchCacheEvictor productSearchCacheEvictor;
 
-    @CacheEvict(cacheNames = CacheConfig.PRODUCT_SEARCH_CACHE, allEntries = true)
     @Transactional
     public ProductResponse createProduct(Long sellerId, ProductCreateRequest request) {
         Category category = getCategory(request.categoryId());
         Product product = Product.create(sellerId, category, request.name(), request.price(), request.stockQuantity());
-        return ProductResponse.from(productRepository.save(product));
+        ProductResponse response = ProductResponse.from(productRepository.save(product));
+        productSearchCacheEvictor.evictAll();
+        return response;
     }
 
-    @CacheEvict(cacheNames = CacheConfig.PRODUCT_SEARCH_CACHE, allEntries = true)
     @Transactional
     public ProductResponse updateProduct(Long sellerId, Long productId, ProductUpdateRequest request) {
         Product product = productRepository.findById(productId)
@@ -55,7 +55,9 @@ public class ProductService {
                 request.stockQuantity(),
                 request.saleStatus()
         );
-        return ProductResponse.from(product);
+        ProductResponse response = ProductResponse.from(product);
+        productSearchCacheEvictor.evictAll();
+        return response;
     }
 
     @Transactional(readOnly = true)
@@ -81,9 +83,16 @@ public class ProductService {
         }
 
         if (cacheable) {
-            return productSearchService.searchProductsWithCache(normalizedKeyword, categoryId, page, size);
+            return searchProductsWithConfiguredCache(normalizedKeyword, categoryId, page, size);
         }
         return productSearchService.searchProducts(normalizedKeyword, categoryId, page, size);
+    }
+
+    private ProductPageResponse searchProductsWithConfiguredCache(String normalizedKeyword, Long categoryId, int page, int size) {
+        if (productSearchCacheProperties.mode() == ProductSearchCacheProperties.Mode.REMOTE) {
+            return productSearchService.searchProductsWithRemoteCache(normalizedKeyword, categoryId, page, size);
+        }
+        return productSearchService.searchProductsWithCache(normalizedKeyword, categoryId, page, size);
     }
 
     private Product getProductEntity(Long productId) {

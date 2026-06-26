@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
@@ -37,6 +38,10 @@ class ProductSearchPerformanceReportTest {
 
     @Autowired
     private CacheManager cacheManager;
+
+    @Autowired
+    @Qualifier("redisCacheManager")
+    private CacheManager redisCacheManager;
 
     private List<SearchMeasurementScenario> scenarios;
 
@@ -81,21 +86,26 @@ class ProductSearchPerformanceReportTest {
 
             warmUp(() -> searchBaseline(scenario));
             warmUp(() -> searchWithLocalCache(scenario));
+            warmUp(() -> searchWithRemoteCache(scenario));
 
             Measurement m1Baseline = measure(() -> searchBaseline(scenario));
-            Measurement m1Cache = measure(() -> searchWithLocalCache(scenario));
-            Measurement m2Cache = measure(() -> searchWithLocalCache(scenario));
+            Measurement m1LocalCache = measure(() -> searchWithLocalCache(scenario));
+            Measurement m1RemoteCache = measure(() -> searchWithRemoteCache(scenario));
+            Measurement m2RemoteCache = measure(() -> searchWithRemoteCache(scenario));
+            Measurement m2LocalCache = measure(() -> searchWithLocalCache(scenario));
             Measurement m2Baseline = measure(() -> searchBaseline(scenario));
 
-            printReport(scenario, m1Baseline, m1Cache, m2Baseline, m2Cache);
+            printReport(scenario, m1Baseline, m1LocalCache, m1RemoteCache, m2Baseline, m2LocalCache, m2RemoteCache);
         }
     }
 
     private void assertSameSearchResult(SearchMeasurementScenario scenario) {
         ProductPageResponse baseline = searchBaseline(scenario);
         ProductPageResponse localCache = searchWithLocalCache(scenario);
+        ProductPageResponse remoteCache = searchWithRemoteCache(scenario);
 
         assertThat(localCache).isEqualTo(baseline);
+        assertThat(remoteCache).isEqualTo(baseline);
     }
 
     private ProductPageResponse searchBaseline(SearchMeasurementScenario scenario) {
@@ -109,6 +119,15 @@ class ProductSearchPerformanceReportTest {
 
     private ProductPageResponse searchWithLocalCache(SearchMeasurementScenario scenario) {
         return productSearchService.searchProductsWithCache(
+                scenario.keyword(),
+                scenario.categoryId(),
+                scenario.page(),
+                scenario.size()
+        );
+    }
+
+    private ProductPageResponse searchWithRemoteCache(SearchMeasurementScenario scenario) {
+        return productSearchService.searchProductsWithRemoteCache(
                 scenario.keyword(),
                 scenario.categoryId(),
                 scenario.page(),
@@ -134,14 +153,18 @@ class ProductSearchPerformanceReportTest {
     private void printReport(
             SearchMeasurementScenario scenario,
             Measurement m1Baseline,
-            Measurement m1Cache,
+            Measurement m1LocalCache,
+            Measurement m1RemoteCache,
             Measurement m2Baseline,
-            Measurement m2Cache
+            Measurement m2LocalCache,
+            Measurement m2RemoteCache
     ) {
         double avgBaselineMillis = (m1Baseline.averageMillis() + m2Baseline.averageMillis()) / 2.0;
-        double avgCacheMillis = (m1Cache.averageMillis() + m2Cache.averageMillis()) / 2.0;
+        double avgLocalCacheMillis = (m1LocalCache.averageMillis() + m2LocalCache.averageMillis()) / 2.0;
+        double avgRemoteCacheMillis = (m1RemoteCache.averageMillis() + m2RemoteCache.averageMillis()) / 2.0;
         double avgBaselineThroughput = (m1Baseline.throughput() + m2Baseline.throughput()) / 2.0;
-        double avgCacheThroughput = (m1Cache.throughput() + m2Cache.throughput()) / 2.0;
+        double avgLocalCacheThroughput = (m1LocalCache.throughput() + m2LocalCache.throughput()) / 2.0;
+        double avgRemoteCacheThroughput = (m1RemoteCache.throughput() + m2RemoteCache.throughput()) / 2.0;
 
         System.out.printf(
                 "%n[Product search performance: %s]%n"
@@ -149,7 +172,9 @@ class ProductSearchPerformanceReportTest {
                         + "sort=saleStatus(SOLD_OUT last), id desc%n"
                         + "baseline.avgMillis=%.3f, baseline.throughput=%.2f req/s%n"
                         + "localCache.avgMillis=%.3f, localCache.throughput=%.2f req/s%n"
-                        + "improvement.avgResponseTime=%.2fx, improvement.throughput=%.2fx%n",
+                        + "remoteCache.avgMillis=%.3f, remoteCache.throughput=%.2f req/s%n"
+                        + "localImprovement.avgResponseTime=%.2fx, localImprovement.throughput=%.2fx%n"
+                        + "remoteImprovement.avgResponseTime=%.2fx, remoteImprovement.throughput=%.2fx%n",
                 scenario.name(),
                 scenario.productCount(),
                 scenario.keyword(),
@@ -160,15 +185,24 @@ class ProductSearchPerformanceReportTest {
                 WARMUP_ITERATIONS,
                 avgBaselineMillis,
                 avgBaselineThroughput,
-                avgCacheMillis,
-                avgCacheThroughput,
-                avgBaselineMillis / avgCacheMillis,
-                avgCacheThroughput / avgBaselineThroughput
+                avgLocalCacheMillis,
+                avgLocalCacheThroughput,
+                avgRemoteCacheMillis,
+                avgRemoteCacheThroughput,
+                avgBaselineMillis / avgLocalCacheMillis,
+                avgLocalCacheThroughput / avgBaselineThroughput,
+                avgBaselineMillis / avgRemoteCacheMillis,
+                avgRemoteCacheThroughput / avgBaselineThroughput
         );
     }
 
     private void clearProductSearchCache() {
-        Cache cache = cacheManager.getCache(PRODUCT_SEARCH_CACHE);
+        clearProductSearchCache(cacheManager);
+        clearProductSearchCache(redisCacheManager);
+    }
+
+    private void clearProductSearchCache(CacheManager manager) {
+        Cache cache = manager.getCache(PRODUCT_SEARCH_CACHE);
         if (cache != null) {
             cache.clear();
         }
