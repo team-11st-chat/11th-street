@@ -12,9 +12,11 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest
@@ -37,6 +39,13 @@ class ProductSearchPerformanceReportTest {
 
     @Autowired
     private CacheManager cacheManager;
+
+    @Autowired
+    @Qualifier("redisCacheManager")
+    private CacheManager redisCacheManager;
+
+    @Autowired
+    private RedisConnectionFactory redisConnectionFactory;
 
     private List<SearchMeasurementScenario> scenarios;
 
@@ -81,21 +90,26 @@ class ProductSearchPerformanceReportTest {
 
             warmUp(() -> searchBaseline(scenario));
             warmUp(() -> searchWithLocalCache(scenario));
+            warmUp(() -> searchWithRemoteCache(scenario));
 
-            Measurement m1Baseline = measure(() -> searchBaseline(scenario));
-            Measurement m1Cache = measure(() -> searchWithLocalCache(scenario));
-            Measurement m2Cache = measure(() -> searchWithLocalCache(scenario));
-            Measurement m2Baseline = measure(() -> searchBaseline(scenario));
+            StatsMeasurement m1Baseline = measureWithStats(() -> searchBaseline(scenario));
+            StatsMeasurement m1LocalCache = measureWithStats(() -> searchWithLocalCache(scenario));
+            StatsMeasurement m1RemoteCache = measureWithStats(() -> searchWithRemoteCache(scenario));
+            StatsMeasurement m2RemoteCache = measureWithStats(() -> searchWithRemoteCache(scenario));
+            StatsMeasurement m2LocalCache = measureWithStats(() -> searchWithLocalCache(scenario));
+            StatsMeasurement m2Baseline = measureWithStats(() -> searchBaseline(scenario));
 
-            printReport(scenario, m1Baseline, m1Cache, m2Baseline, m2Cache);
+            printReport(scenario, m1Baseline, m1LocalCache, m1RemoteCache, m2Baseline, m2LocalCache, m2RemoteCache);
         }
     }
 
     private void assertSameSearchResult(SearchMeasurementScenario scenario) {
         ProductPageResponse baseline = searchBaseline(scenario);
         ProductPageResponse localCache = searchWithLocalCache(scenario);
+        ProductPageResponse remoteCache = searchWithRemoteCache(scenario);
 
         assertThat(localCache).isEqualTo(baseline);
+        assertThat(remoteCache).isEqualTo(baseline);
     }
 
     private ProductPageResponse searchBaseline(SearchMeasurementScenario scenario) {
@@ -109,6 +123,15 @@ class ProductSearchPerformanceReportTest {
 
     private ProductPageResponse searchWithLocalCache(SearchMeasurementScenario scenario) {
         return productSearchService.searchProductsWithCache(
+                scenario.keyword(),
+                scenario.categoryId(),
+                scenario.page(),
+                scenario.size()
+        );
+    }
+
+    private ProductPageResponse searchWithRemoteCache(SearchMeasurementScenario scenario) {
+        return productSearchService.searchProductsWithRemoteCache(
                 scenario.keyword(),
                 scenario.categoryId(),
                 scenario.page(),
@@ -131,25 +154,123 @@ class ProductSearchPerformanceReportTest {
         return new Measurement(elapsed);
     }
 
+    private long getLocalHitCount() {
+        Cache springCache = cacheManager.getCache(PRODUCT_SEARCH_CACHE);
+        if (springCache instanceof org.springframework.cache.caffeine.CaffeineCache caffeineCache) {
+            return caffeineCache.getNativeCache().stats().hitCount();
+        }
+        return 0L;
+    }
+
+    private long getLocalMissCount() {
+        Cache springCache = cacheManager.getCache(PRODUCT_SEARCH_CACHE);
+        if (springCache instanceof org.springframework.cache.caffeine.CaffeineCache caffeineCache) {
+            return caffeineCache.getNativeCache().stats().missCount();
+        }
+        return 0L;
+    }
+
+    private long getRemoteHitCount() {
+        try (var connection = redisConnectionFactory.getConnection()) {
+            java.util.Properties info = connection.info("stats");
+            if (info != null) {
+                return Long.parseLong(info.getProperty("keyspace_hits", "0"));
+            }
+        } catch (Exception e) {
+            // 무시
+        }
+        return 0L;
+    }
+
+    private long getRemoteMissCount() {
+        try (var connection = redisConnectionFactory.getConnection()) {
+            java.util.Properties info = connection.info("stats");
+            if (info != null) {
+                return Long.parseLong(info.getProperty("keyspace_misses", "0"));
+            }
+        } catch (Exception e) {
+            // 무시
+        }
+        return 0L;
+    }
+
+    private long getLocalCacheSize() {
+        Cache springCache = cacheManager.getCache(PRODUCT_SEARCH_CACHE);
+        if (springCache instanceof org.springframework.cache.caffeine.CaffeineCache caffeineCache) {
+            return caffeineCache.getNativeCache().estimatedSize();
+        }
+        return 0L;
+    }
+
+    private String getRedisMemoryUsage() {
+        try (var connection = redisConnectionFactory.getConnection()) {
+            java.util.Properties info = connection.info("memory");
+            if (info != null) {
+                return info.getProperty("used_memory_human", "N/A");
+            }
+        } catch (Exception e) {
+            // 무시
+        }
+        return "N/A";
+    }
+
+    private StatsMeasurement measureWithStats(Runnable search) {
+        long startLocalHits = getLocalHitCount();
+        long startLocalMisses = getLocalMissCount();
+        long startRemoteHits = getRemoteHitCount();
+        long startRemoteMisses = getRemoteMissCount();
+
+        Measurement measurement = measure(search);
+
+        long endLocalHits = getLocalHitCount();
+        long endLocalMisses = getLocalMissCount();
+        long endRemoteHits = getRemoteHitCount();
+        long endRemoteMisses = getRemoteMissCount();
+
+        return new StatsMeasurement(
+                measurement,
+                endLocalHits - startLocalHits,
+                endLocalMisses - startLocalMisses,
+                endRemoteHits - startRemoteHits,
+                endRemoteMisses - startRemoteMisses,
+                getLocalCacheSize(),
+                getRedisMemoryUsage()
+        );
+    }
+
     private void printReport(
             SearchMeasurementScenario scenario,
-            Measurement m1Baseline,
-            Measurement m1Cache,
-            Measurement m2Baseline,
-            Measurement m2Cache
+            StatsMeasurement m1Baseline,
+            StatsMeasurement m1LocalCache,
+            StatsMeasurement m1RemoteCache,
+            StatsMeasurement m2Baseline,
+            StatsMeasurement m2LocalCache,
+            StatsMeasurement m2RemoteCache
     ) {
-        double avgBaselineMillis = (m1Baseline.averageMillis() + m2Baseline.averageMillis()) / 2.0;
-        double avgCacheMillis = (m1Cache.averageMillis() + m2Cache.averageMillis()) / 2.0;
-        double avgBaselineThroughput = (m1Baseline.throughput() + m2Baseline.throughput()) / 2.0;
-        double avgCacheThroughput = (m1Cache.throughput() + m2Cache.throughput()) / 2.0;
+        double avgBaselineMillis = (m1Baseline.measurement().averageMillis() + m2Baseline.measurement().averageMillis()) / 2.0;
+        double avgLocalCacheMillis = (m1LocalCache.measurement().averageMillis() + m2LocalCache.measurement().averageMillis()) / 2.0;
+        double avgRemoteCacheMillis = (m1RemoteCache.measurement().averageMillis() + m2RemoteCache.measurement().averageMillis()) / 2.0;
+        double avgBaselineThroughput = (m1Baseline.measurement().throughput() + m2Baseline.measurement().throughput()) / 2.0;
+        double avgLocalCacheThroughput = (m1LocalCache.measurement().throughput() + m2LocalCache.measurement().throughput()) / 2.0;
+        double avgRemoteCacheThroughput = (m1RemoteCache.measurement().throughput() + m2RemoteCache.measurement().throughput()) / 2.0;
+
+        long totalLocalHits = m1LocalCache.localHits() + m2LocalCache.localHits();
+        long totalLocalMisses = m1LocalCache.localMisses() + m2LocalCache.localMisses();
+        double localHitRate = (totalLocalHits + totalLocalMisses == 0) ? 0.0 : (double) totalLocalHits / (totalLocalHits + totalLocalMisses) * 100.0;
+
+        long totalRemoteHits = m1RemoteCache.remoteHits() + m2RemoteCache.remoteHits();
+        long totalRemoteMisses = m1RemoteCache.remoteMisses() + m2RemoteCache.remoteMisses();
+        double remoteHitRate = (totalRemoteHits + totalRemoteMisses == 0) ? 0.0 : (double) totalRemoteHits / (totalRemoteHits + totalRemoteMisses) * 100.0;
 
         System.out.printf(
                 "%n[Product search performance: %s]%n"
                         + "dataCount=%d, keyword=%s, categoryId=%s, page=%d, size=%d, iterations=%d, warmUp=%d%n"
                         + "sort=saleStatus(SOLD_OUT last), id desc%n"
                         + "baseline.avgMillis=%.3f, baseline.throughput=%.2f req/s%n"
-                        + "localCache.avgMillis=%.3f, localCache.throughput=%.2f req/s%n"
-                        + "improvement.avgResponseTime=%.2fx, improvement.throughput=%.2fx%n",
+                        + "localCache.avgMillis=%.3f, localCache.throughput=%.2f req/s, localHits=%d, localMisses=%d, localHitRate=%.2f%%, localCacheSize=%d%n"
+                        + "remoteCache.avgMillis=%.3f, remoteCache.throughput=%.2f req/s, remoteHits=%d, remoteMisses=%d, remoteHitRate=%.2f%%, redisMemory=%s%n"
+                        + "localImprovement.avgResponseTime=%.2fx, localImprovement.throughput=%.2fx%n"
+                        + "remoteImprovement.avgResponseTime=%.2fx, remoteImprovement.throughput=%.2fx%n",
                 scenario.name(),
                 scenario.productCount(),
                 scenario.keyword(),
@@ -160,15 +281,32 @@ class ProductSearchPerformanceReportTest {
                 WARMUP_ITERATIONS,
                 avgBaselineMillis,
                 avgBaselineThroughput,
-                avgCacheMillis,
-                avgCacheThroughput,
-                avgBaselineMillis / avgCacheMillis,
-                avgCacheThroughput / avgBaselineThroughput
+                avgLocalCacheMillis,
+                avgLocalCacheThroughput,
+                totalLocalHits,
+                totalLocalMisses,
+                localHitRate,
+                m2LocalCache.localCacheSize(),
+                avgRemoteCacheMillis,
+                avgRemoteCacheThroughput,
+                totalRemoteHits,
+                totalRemoteMisses,
+                remoteHitRate,
+                m2RemoteCache.redisMemory(),
+                avgBaselineMillis / avgLocalCacheMillis,
+                avgLocalCacheThroughput / avgBaselineThroughput,
+                avgBaselineMillis / avgRemoteCacheMillis,
+                avgRemoteCacheThroughput / avgBaselineThroughput
         );
     }
 
     private void clearProductSearchCache() {
-        Cache cache = cacheManager.getCache(PRODUCT_SEARCH_CACHE);
+        clearProductSearchCache(cacheManager);
+        clearProductSearchCache(redisCacheManager);
+    }
+
+    private void clearProductSearchCache(CacheManager manager) {
+        Cache cache = manager.getCache(PRODUCT_SEARCH_CACHE);
         if (cache != null) {
             cache.clear();
         }
@@ -187,6 +325,17 @@ class ProductSearchPerformanceReportTest {
         double throughput() {
             return ITERATIONS / (elapsed.toNanos() / 1_000_000_000.0);
         }
+    }
+
+    private record StatsMeasurement(
+            Measurement measurement,
+            long localHits,
+            long localMisses,
+            long remoteHits,
+            long remoteMisses,
+            long localCacheSize,
+            String redisMemory
+    ) {
     }
 
     private record SearchMeasurementScenario(

@@ -49,11 +49,21 @@ class ProductServiceTest {
     @Mock
     private ProductSearchService productSearchService;
 
+    @Mock
+    private ProductSearchCacheEvictor productSearchCacheEvictor;
+
     private ProductService productService;
 
     @BeforeEach
     void setUp() {
-        productService = new ProductService(productRepository, categoryRepository, searchKeywordRecorder, productSearchService);
+        productService = new ProductService(
+                productRepository,
+                categoryRepository,
+                searchKeywordRecorder,
+                productSearchService,
+                new ProductSearchCacheProperties(ProductSearchCacheProperties.Mode.LOCAL),
+                productSearchCacheEvictor
+        );
     }
 
     @Test
@@ -179,6 +189,29 @@ class ProductServiceTest {
         assertThatThrownBy(() -> productService.searchProductsV2("이어폰", 11L, 0, 101, "guest_123"))
                 .isInstanceOf(ProductException.class)
                 .hasMessage("페이징 파라미터가 올바르지 않습니다.");
+    }
+
+    @Test
+    void searchProductsV2_usesRemoteCacheWhenConfigured() {
+        ProductPageResponse expectedResponse = ProductPageResponse.from(
+                new PageImpl<Product>(List.of()).map(ProductSummaryResponse::from)
+        );
+        productService = new ProductService(
+                productRepository,
+                categoryRepository,
+                searchKeywordRecorder,
+                productSearchService,
+                new ProductSearchCacheProperties(ProductSearchCacheProperties.Mode.REMOTE),
+                productSearchCacheEvictor
+        );
+
+        when(productSearchService.searchProductsWithRemoteCache(eq("airpods"), eq(11L), eq(0), eq(20)))
+                .thenReturn(expectedResponse);
+
+        ProductPageResponse response = productService.searchProductsV2("AirPods", 11L, 0, 20, "guest_123");
+
+        assertThat(response).isEqualTo(expectedResponse);
+        verify(productSearchService).searchProductsWithRemoteCache("airpods", 11L, 0, 20);
     }
 
     @Test

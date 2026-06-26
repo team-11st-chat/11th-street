@@ -11,6 +11,9 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.serializer.GenericJacksonJsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext.SerializationPair;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
+import tools.jackson.databind.DatabindContext;
+import tools.jackson.databind.JavaType;
+import tools.jackson.databind.jsontype.PolymorphicTypeValidator;
 
 @Configuration
 @EnableConfigurationProperties(RedisKeyPrefixProperties.class)
@@ -29,11 +32,46 @@ public class RedisCacheConfig {
                 .disableCachingNullValues()
                 .serializeKeysWith(SerializationPair.fromSerializer(new StringRedisSerializer()))
                 .serializeValuesWith(SerializationPair.fromSerializer(
-                        GenericJacksonJsonRedisSerializer.builder().build()));
+                        GenericJacksonJsonRedisSerializer.builder()
+                                .enableDefaultTyping(new RedisCachePolymorphicTypeValidator())
+                                .build()));
 
         return RedisCacheManager.builder(redisConnectionFactory)
                 .cacheDefaults(cacheConfiguration)
                 .transactionAware()
                 .build();
+    }
+
+    private static final class RedisCachePolymorphicTypeValidator extends PolymorphicTypeValidator {
+
+        @Override
+        public Validity validateBaseType(DatabindContext context, JavaType baseType) {
+            return Validity.INDETERMINATE;
+        }
+
+        @Override
+        public Validity validateSubClassName(DatabindContext context, JavaType baseType, String subClassName) {
+            if (subClassName.startsWith("com.elevenst.realtimechat.")) {
+                return Validity.ALLOWED;
+            }
+            if (subClassName.equals("java.math.BigDecimal")
+                    || subClassName.equals("java.lang.String")
+                    || subClassName.equals("java.lang.Long")
+                    || subClassName.equals("java.lang.Integer")
+                    || subClassName.equals("java.lang.Double")
+                    || subClassName.equals("java.lang.Boolean")
+                    || subClassName.equals("java.util.ArrayList")
+                    || subClassName.equals("java.util.LinkedList")
+                    || subClassName.startsWith("java.util.Collections$")
+                    || subClassName.equals("java.util.Arrays$ArrayList")) {
+                return Validity.ALLOWED;
+            }
+            return Validity.DENIED;
+        }
+
+        @Override
+        public Validity validateSubType(DatabindContext context, JavaType baseType, JavaType subType) {
+            return validateSubClassName(context, baseType, subType.getRawClass().getName());
+        }
     }
 }

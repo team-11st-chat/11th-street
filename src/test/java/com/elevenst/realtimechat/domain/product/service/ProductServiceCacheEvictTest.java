@@ -22,7 +22,7 @@ import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
-@SpringBootTest(classes = {CacheConfig.class, ProductService.class})
+@SpringBootTest(classes = {CacheConfig.class, ProductService.class, ProductSearchCacheEvictor.class})
 @Tag("integration")
 class ProductServiceCacheEvictTest {
 

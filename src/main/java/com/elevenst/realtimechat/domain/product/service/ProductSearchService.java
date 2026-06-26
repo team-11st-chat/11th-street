@@ -16,6 +16,9 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ProductSearchService {
 
+    private static final String PRODUCT_SEARCH_CACHE_KEY =
+            "'product_search:' + (#normalizedKeyword != null ? #normalizedKeyword : '~null~') + ':' + #categoryId + ':' + #page + ':' + #size";
+
     private final ProductRepository productRepository;
 
     @Transactional(readOnly = true)
@@ -25,10 +28,20 @@ public class ProductSearchService {
 
     @Cacheable(
             cacheNames = PRODUCT_SEARCH_CACHE,
-            key = "'product_search:' + (#normalizedKeyword != null ? #normalizedKeyword : '~null~') + ':' + #categoryId + ':' + #page + ':' + #size"
+            key = PRODUCT_SEARCH_CACHE_KEY
     )
     @Transactional(readOnly = true)
     public ProductPageResponse searchProductsWithCache(String normalizedKeyword, Long categoryId, int page, int size) {
+        return search(normalizedKeyword, categoryId, page, size);
+    }
+
+    @Cacheable(
+            cacheNames = PRODUCT_SEARCH_CACHE,
+            cacheManager = "redisCacheManager",
+            key = PRODUCT_SEARCH_CACHE_KEY
+    )
+    @Transactional(readOnly = true)
+    public ProductPageResponse searchProductsWithRemoteCache(String normalizedKeyword, Long categoryId, int page, int size) {
         return search(normalizedKeyword, categoryId, page, size);
     }
 
