@@ -18,6 +18,9 @@ public enum ChatRoomErrorCode implements ErrorCode {
     CS_ROOM_NOT_IN_PROGRESS(HttpStatus.CONFLICT, "CS chat room is not in progress."),
     ACCESS_DENIED(HttpStatus.FORBIDDEN, "Chat room access is denied."),
     CS_ADMIN_REQUIRED(HttpStatus.FORBIDDEN, "CS admin role is required."),
+    ALREADY_JOINED(HttpStatus.CONFLICT, "Chat room participant already joined."),
+    NOT_JOINED(HttpStatus.CONFLICT, "Chat room participant is not joined."),
+    INVALID_MESSAGE_HISTORY_SIZE(HttpStatus.BAD_REQUEST, "Message history size must be between 1 and 100."),
     LOCK_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "Chat room request is temporarily unavailable.");
 
     private final HttpStatus httpStatus;

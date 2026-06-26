@@ -60,4 +60,13 @@ public class ChatRoomParticipant {
     public static ChatRoomParticipant join(ChatRoom chatRoom, Long memberId, ParticipantRole participantRole, LocalDateTime joinedAt) {
         return new ChatRoomParticipant(chatRoom, memberId, participantRole, joinedAt);
     }
+
+    public void rejoin(LocalDateTime joinedAt) {
+        this.joinedAt = joinedAt;
+        this.leftAt = null;
+    }
+
+    public void leave(LocalDateTime leftAt) {
+        this.leftAt = leftAt;
+    }
 }

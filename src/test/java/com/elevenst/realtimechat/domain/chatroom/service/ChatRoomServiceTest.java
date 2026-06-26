@@ -19,6 +19,7 @@ import com.elevenst.realtimechat.domain.chatroom.repository.ChatRoomParticipantR
 import com.elevenst.realtimechat.domain.chatroom.repository.ChatRoomRepository;
 import com.elevenst.realtimechat.domain.member.entity.MemberRole;
 import com.elevenst.realtimechat.domain.member.repository.MemberRepository;
+import com.elevenst.realtimechat.domain.message.service.ChatMessageService;
 import com.elevenst.realtimechat.global.support.LockManager;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -45,6 +46,9 @@ class ChatRoomServiceTest {
     private ChatRoomProductCatalogReader productCatalogReader;
 
     @Mock
+    private ChatMessageService chatMessageService;
+
+    @Mock
     private LockManager lockManager;
 
     private ChatRoomService chatRoomService;
@@ -56,6 +60,7 @@ class ChatRoomServiceTest {
                 participantRepository,
                 memberRepository,
                 productCatalogReader,
+                chatMessageService,
                 lockManager
         );
     }
