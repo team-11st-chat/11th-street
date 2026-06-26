@@ -63,7 +63,7 @@ class ProductSearchServiceCacheTest {
     @Test
     void searchProductsWithCache_storesResponseByProductSearchKeyPolicy() {
         when(productRepository.searchProducts(
-                eq("airpods"), eq(11L), eq(SaleStatus.SUSPENDED), eq(SaleStatus.SOLD_OUT), any(PageRequest.class)
+                eq("airpods"), eq(11L), eq(SaleStatus.SUSPENDED), any(PageRequest.class)
         )).thenReturn(new PageImpl<Product>(List.of(), PageRequest.of(0, 20), 0));
 
         productSearchService.searchProductsWithCache("airpods", 11L, 0, 20);
@@ -76,45 +76,45 @@ class ProductSearchServiceCacheTest {
     @Test
     void searchProductsWithCache_reusesCachedResponseForSameRequest() {
         when(productRepository.searchProducts(
-                eq("airpods"), eq(11L), eq(SaleStatus.SUSPENDED), eq(SaleStatus.SOLD_OUT), any(PageRequest.class)
+                eq("airpods"), eq(11L), eq(SaleStatus.SUSPENDED), any(PageRequest.class)
         )).thenReturn(new PageImpl<Product>(List.of(), PageRequest.of(0, 20), 0));
 
         productSearchService.searchProductsWithCache("airpods", 11L, 0, 20);
         productSearchService.searchProductsWithCache("airpods", 11L, 0, 20);
 
         verify(productRepository, times(1)).searchProducts(
-                eq("airpods"), eq(11L), eq(SaleStatus.SUSPENDED), eq(SaleStatus.SOLD_OUT), any(PageRequest.class)
+                eq("airpods"), eq(11L), eq(SaleStatus.SUSPENDED), any(PageRequest.class)
         );
     }
 
     @Test
     void searchProducts_withoutCacheDoesNotReuseCachedResponse() {
         when(productRepository.searchProducts(
-                eq("airpods"), eq(11L), eq(SaleStatus.SUSPENDED), eq(SaleStatus.SOLD_OUT), any(PageRequest.class)
+                eq("airpods"), eq(11L), eq(SaleStatus.SUSPENDED), any(PageRequest.class)
         )).thenReturn(new PageImpl<Product>(List.of(), PageRequest.of(0, 20), 0));
 
         productSearchService.searchProducts("airpods", 11L, 0, 20);
         productSearchService.searchProducts("airpods", 11L, 0, 20);
 
         verify(productRepository, times(2)).searchProducts(
-                eq("airpods"), eq(11L), eq(SaleStatus.SUSPENDED), eq(SaleStatus.SOLD_OUT), any(PageRequest.class)
+                eq("airpods"), eq(11L), eq(SaleStatus.SUSPENDED), any(PageRequest.class)
         );
     }
 
     @Test
     void searchProductsWithCache_distinguishesNullKeywordFromLiteralNullKeyword() {
         when(productRepository.searchProducts(
-                any(), eq(11L), eq(SaleStatus.SUSPENDED), eq(SaleStatus.SOLD_OUT), any(PageRequest.class)
+                any(), eq(11L), eq(SaleStatus.SUSPENDED), any(PageRequest.class)
         )).thenReturn(new PageImpl<Product>(List.of(), PageRequest.of(0, 20), 0));
 
         productSearchService.searchProductsWithCache(null, 11L, 0, 20);
         productSearchService.searchProductsWithCache("null", 11L, 0, 20);
 
         verify(productRepository).searchProducts(
-                eq(null), eq(11L), eq(SaleStatus.SUSPENDED), eq(SaleStatus.SOLD_OUT), any(PageRequest.class)
+                eq(null), eq(11L), eq(SaleStatus.SUSPENDED), any(PageRequest.class)
         );
         verify(productRepository).searchProducts(
-                eq("null"), eq(11L), eq(SaleStatus.SUSPENDED), eq(SaleStatus.SOLD_OUT), any(PageRequest.class)
+                eq("null"), eq(11L), eq(SaleStatus.SUSPENDED), any(PageRequest.class)
         );
     }
 

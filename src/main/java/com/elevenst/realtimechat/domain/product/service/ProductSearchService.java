@@ -34,7 +34,7 @@ public class ProductSearchService {
 
     private ProductPageResponse search(String normalizedKeyword, Long categoryId, int page, int size) {
         return ProductPageResponse.from(productRepository
-                .searchProducts(normalizedKeyword, categoryId, SaleStatus.SUSPENDED, SaleStatus.SOLD_OUT, PageRequest.of(page, size))
+                .searchProducts(normalizedKeyword, categoryId, SaleStatus.SUSPENDED, PageRequest.of(page, size))
                 .map(ProductSummaryResponse::from));
     }
 }
