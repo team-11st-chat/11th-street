@@ -1,5 +1,8 @@
 package com.elevenst.realtimechat.global.websocket;
 
+import com.elevenst.realtimechat.domain.chatroom.exception.ChatRoomErrorCode;
+import com.elevenst.realtimechat.domain.chatroom.exception.ChatRoomException;
+import com.elevenst.realtimechat.domain.chatroom.repository.ChatRoomParticipantRepository;
 import com.elevenst.realtimechat.global.security.JwtTokenProvider;
 import com.elevenst.realtimechat.global.security.token.AccessTokenBlacklist;
 import com.elevenst.realtimechat.global.security.token.TokenClaims;
@@ -7,7 +10,7 @@ import com.elevenst.realtimechat.global.security.token.TokenInvalidationRegistry
 import io.jsonwebtoken.JwtException;
 import java.util.List;
 import java.util.Map;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.simp.stomp.StompCommand;
@@ -22,16 +25,38 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 @Component
-@RequiredArgsConstructor
 public class StompJwtChannelInterceptor implements ChannelInterceptor {
 
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String ACCESS_TOKEN_SESSION_ATTRIBUTE = "accessToken";
+    private static final String CHATROOM_TOPIC_PREFIX = "/topic/chatrooms/";
 
     private final JwtTokenProvider jwtTokenProvider;
     private final AccessTokenBlacklist accessTokenBlacklist;
     private final TokenInvalidationRegistry tokenInvalidationRegistry;
+    private final ChatRoomParticipantRepository participantRepository;
+
+    @Autowired
+    public StompJwtChannelInterceptor(
+            JwtTokenProvider jwtTokenProvider,
+            AccessTokenBlacklist accessTokenBlacklist,
+            TokenInvalidationRegistry tokenInvalidationRegistry,
+            ChatRoomParticipantRepository participantRepository
+    ) {
+        this.jwtTokenProvider = jwtTokenProvider;
+        this.accessTokenBlacklist = accessTokenBlacklist;
+        this.tokenInvalidationRegistry = tokenInvalidationRegistry;
+        this.participantRepository = participantRepository;
+    }
+
+    public StompJwtChannelInterceptor(
+            JwtTokenProvider jwtTokenProvider,
+            AccessTokenBlacklist accessTokenBlacklist,
+            TokenInvalidationRegistry tokenInvalidationRegistry
+    ) {
+        this(jwtTokenProvider, accessTokenBlacklist, tokenInvalidationRegistry, null);
+    }
 
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
@@ -42,6 +67,7 @@ public class StompJwtChannelInterceptor implements ChannelInterceptor {
 
         if (accessor.getCommand() != StompCommand.CONNECT) {
             authenticateConnectedSession(accessor);
+            validateChatRoomSubscription(accessor);
             return message;
         }
 
@@ -134,6 +160,42 @@ public class StompJwtChannelInterceptor implements ChannelInterceptor {
                 || command == StompCommand.UNSUBSCRIBE
                 || command == StompCommand.ACK
                 || command == StompCommand.NACK;
+    }
+
+    private void validateChatRoomSubscription(StompHeaderAccessor accessor) {
+        if (accessor.getCommand() != StompCommand.SUBSCRIBE || participantRepository == null) {
+            return;
+        }
+
+        String destination = accessor.getDestination();
+        if (destination == null || !destination.startsWith(CHATROOM_TOPIC_PREFIX)) {
+            return;
+        }
+
+        Long chatRoomId = parseChatRoomId(destination);
+        Long memberId = parseMemberId(accessor);
+        if (!participantRepository.existsByChatRoomIdAndMemberIdAndLeftAtIsNull(chatRoomId, memberId)) {
+            throw new ChatRoomException(ChatRoomErrorCode.ACCESS_DENIED);
+        }
+    }
+
+    private Long parseChatRoomId(String destination) {
+        String rawChatRoomId = destination.substring(CHATROOM_TOPIC_PREFIX.length());
+        if (!StringUtils.hasText(rawChatRoomId) || rawChatRoomId.contains("/")) {
+            throw new ChatRoomException(ChatRoomErrorCode.CHAT_ROOM_NOT_FOUND);
+        }
+        try {
+            return Long.valueOf(rawChatRoomId);
+        } catch (NumberFormatException exception) {
+            throw new ChatRoomException(ChatRoomErrorCode.CHAT_ROOM_NOT_FOUND);
+        }
+    }
+
+    private Long parseMemberId(StompHeaderAccessor accessor) {
+        if (accessor.getUser() == null || !StringUtils.hasText(accessor.getUser().getName())) {
+            throw new AuthenticationCredentialsNotFoundException("WebSocket authentication is required.");
+        }
+        return Long.valueOf(accessor.getUser().getName());
     }
 
     private UsernamePasswordAuthenticationToken createAuthentication(TokenClaims claims) {
