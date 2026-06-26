@@ -59,7 +59,7 @@
 
 - **Pub/Sub 기반 대기**: 직접 구현의 `SETNX` 스핀 락은 락이 풀릴 때까지 짧은 간격으로 재조회(busy-wait)해 Redis 부하와 CPU를 낭비한다. Redisson은 락 해제 시 **Pub/Sub 채널로 통지**해 대기 스레드를 깨우므로, 폴링 없이 효율적으로 대기한다.
 - **재진입(Reentrant) 락 + 소유권 검증**: Redisson `RLock`은 Lua 스크립트로 획득/해제를 원자적으로 처리하고, **현재 스레드가 소유한 락만 해제**(`isHeldByCurrentThread`)할 수 있어 "남의 락을 푸는" 오류를 막는다. 본 구현(`RedissonLockManager#unlock`)도 이 검증에 의존한다.
-- **Watchdog / Lease 자동 만료**: TTL(Lease Time)을 명시해 락 보유 프로세스가 죽어도 자동 해제된다. 직접 구현 시 일일이 다뤄야 하는 만료·갱신을 라이브러리가 검증된 형태로 제공한다.
+- **Lease 자동 만료 (TTL)**: TTL(Lease Time)을 명시해 락 보유 프로세스가 죽어도 자동 해제된다. 직접 구현 시 일일이 다뤄야 하는 만료를 라이브러리가 검증된 형태로 제공한다. 참고로 Redisson의 **Watchdog(자동 락 갱신)는 `leaseTime`을 지정하지 않을(`-1`) 때만** 동작하는데, 본 프로젝트는 `leaseTime=2초`를 **명시**하므로 Watchdog는 사용하지 않고 지정한 TTL 만료에 의존한다.
 - **검증된 구현**: 분산 락의 까다로운 경계(원자적 해제, 만료, 통지)를 직접 구현하면 버그 위험이 크다. 표준 라이브러리 사용이 안전하다.
 
 ## 6. 본 프로젝트 적용 정책 (Wait / Lease / Fail-Closed)
@@ -72,13 +72,17 @@
 | **Lease Time** | **2초** | 락 보유 최대 시간. 보유 프로세스가 죽어도 2초 뒤 자동 해제되어 락 잔류를 막는다. 임계영역(차감·생성)은 이보다 짧게 유지한다. |
 | **Fail-Closed** | 락 획득 실패 시 **거절(503)** | 락을 못 잡으면(타임아웃·Redis 장애 포함) 보호 없이 진행하지 않고 `SERVICE_UNAVAILABLE`로 거절한다. 정합성(초과 판매/발급 방지)을 가용성보다 우선한다. |
 
+> **용어 메모**: Wait Time 초과 시 더 기다리지 않고 즉시 거절하는 동작은 'Fail-Fast'적 성격이지만, 본 문서는 "보호 없이는 진행하지 않고 거절한다"는 정책 전체를 **Fail-Closed**로 통칭한다. 위키 Policies 섹션에는 'Fail-Fast'와 'Fail-Closed' 표현이 혼재하므로, 위키 용어를 'Fail-Closed'로 정렬하는 후속 작업을 고려한다.
+
 **구현 매핑**
 
 - 인터페이스: `LockManager` (`tryLock(key, waitTime, leaseTime, unit)` / `unlock(key)`), 기본값 `DEFAULT_WAIT_TIME=3s`, `DEFAULT_LEASE_TIME=2s`.
 - 운영 구현체: `RedissonLockManager` (`@Primary`, `@Profile("!test")`) — `RLock#tryLock`, 해제는 `isHeldByCurrentThread` 확인 후 `unlock`. 획득 중 예외/인터럽트 시 `false` 반환 → 상위에서 Fail-Closed.
-- 테스트/로컬 대체: `FakeLockManager` (`@Profile("test")`, no-op `true` 반환).
-- 타임세일: `TimeSaleOrderFacade` — 키 `lock:timesale:{timeSaleId}`, 획득 실패 시 503. 락 임계영역 안에서 멱등성 검사 + 수량 차감·주문 생성을 수행한다.
+- 테스트 대체(test 프로파일 전용): `FakeLockManager` (`@Profile("test")`, no-op `true` 반환). 로컬 실행 프로파일에서는 `RedissonLockManager`가 주입된다.
+- 타임세일: `TimeSaleOrderFacade` — 키 `lock:timesale:{timeSaleId}`, 획득 실패 시 503. **락 임계영역 안**에서 멱등성 검사(`checkAndSet`) + 수량 차감·주문 생성을 수행한다.
 - 쿠폰: `CouponIssueFacade` — 키 `lock:coupon:{couponPolicyId}`, Wait 3s / Lease 2s, 획득 실패 시 503.
+
+> **멱등성 검사 위치 차이(의도된 설계)**: 두 Facade는 멱등성 검사 시점이 다르다. `TimeSaleOrderFacade`는 **락 획득 이후**(임계영역 안)에서 `checkAndSet`을 호출하고, `CouponIssueFacade`는 **락 획득 이전**에 호출한다. 쿠폰 쪽은 동일 Request-ID의 중복 요청을 **락 대기 없이 먼저 빠르게 거절**(`COUPON_003`)하려는 의도다. 두 방식 모두 정합성에는 문제가 없으며, 멱등성 키 충돌 처리를 락 경합 앞단에 둘지 임계영역 안에 둘지의 트레이드오프(빠른 거절 vs 흐름 단순화) 차이다.
 
 **락 ↔ 트랜잭션 경계**: 락 획득/해제는 `@Transactional` 서비스 호출을 감싸는 **Facade(트랜잭션 바깥)**에 둔다. 서비스가 반환되면 커밋이 끝난 상태이므로 그 다음 `finally`에서 락을 해제한다. 락 해제가 커밋보다 먼저 일어나면 다음 대기 요청이 **미커밋 상태**를 보고 수량·중복 검증을 우회할 수 있기 때문이다.
 
