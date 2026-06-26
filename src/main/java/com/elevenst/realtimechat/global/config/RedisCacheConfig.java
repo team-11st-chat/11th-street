@@ -62,8 +62,7 @@ public class RedisCacheConfig {
                     || subClassName.equals("java.lang.Boolean")
                     || subClassName.equals("java.util.ArrayList")
                     || subClassName.equals("java.util.LinkedList")
-                    || subClassName.equals("java.util.Collections$EmptyList")
-                    || subClassName.equals("java.util.Collections$UnmodifiableList")
+                    || subClassName.startsWith("java.util.Collections$")
                     || subClassName.equals("java.util.Arrays$ArrayList")) {
                 return Validity.ALLOWED;
             }
