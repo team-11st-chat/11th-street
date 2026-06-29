@@ -39,10 +39,13 @@ public class ChatMessageService {
     private final ChatMessagePersistenceService chatMessagePersistenceService;
 
     @Transactional(readOnly = true)
-    public ChatMessageHistoryResponse getPreviousMessages(Long chatRoomId, Long cursor, int size) {
+    public ChatMessageHistoryResponse getPreviousMessages(Long memberId, Long chatRoomId, Long cursor, int size) {
+        ChatRoom room = getRoom(chatRoomId);
+        validateParticipant(room.getId(), memberId);
+
         LocalDateTime retentionStartedAt = LocalDateTime.now(clock).minusDays(ACTIVE_MESSAGE_RETENTION_DAYS);
         List<ChatMessage> messages = chatMessageRepository.findPreviousMessages(
-                chatRoomId,
+                room.getId(),
                 cursor,
                 retentionStartedAt,
                 PageRequest.of(0, size + 1)
