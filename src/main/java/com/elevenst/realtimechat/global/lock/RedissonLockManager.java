@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Primary
 @Component
-@Profile("!test")
+@Profile("!test & !nolock")
 @RequiredArgsConstructor
 public class RedissonLockManager implements LockManager {
 
