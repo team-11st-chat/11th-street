@@ -15,7 +15,13 @@
 
 ## Docker Compose 로컬 실행
 
-1. Application, MySQL, Redis를 함께 빌드하고 실행합니다.
+1. Application JAR를 빌드합니다.
+
+```powershell
+.\gradlew.bat bootJar
+```
+
+2. Application, MySQL, Redis를 함께 빌드하고 실행합니다.
 
 ```powershell
 docker compose up --build
@@ -27,13 +33,13 @@ docker compose up --build
 docker compose up --build -d
 ```
 
-2. Health Check를 확인합니다.
+3. Health Check를 확인합니다.
 
 ```powershell
 curl.exe http://localhost:8080/health
 ```
 
-3. 실행을 종료할 때는 컨테이너를 내립니다.
+4. 실행을 종료할 때는 컨테이너를 내립니다.
 
 ```powershell
 docker compose down
@@ -137,6 +143,7 @@ GitHub Actions에는 다음 값을 등록해야 합니다.
 | Variable | `ECR_REPOSITORY` | ECR Repository 이름. 예: `11th-street-app` |
 | Variable | `LAUNCH_TEMPLATE_ID` | 배포 대상 Auto Scaling Group이 사용하는 Launch Template ID |
 | Variable | `ASG_NAME` | Instance Refresh를 실행할 Auto Scaling Group 이름 |
+| Variable | `HEALTHCHECK_URL` | 배포 후 확인할 Health Check URL. 예: `https://example.com/health` |
 
 EC2 Instance Role에는 ECR 이미지 pull 권한과 Parameter Store 읽기 권한이 필요합니다.
 런타임 환경변수는 Parameter Store의 `/11th-street/prod` 경로 아래에 저장합니다.

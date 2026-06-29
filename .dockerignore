@@ -3,7 +3,9 @@
 .gradle
 .idea
 .vscode
-build
+build/*
+!build/libs/
+!build/libs/*.jar
 out
 _workspace
 .agents
