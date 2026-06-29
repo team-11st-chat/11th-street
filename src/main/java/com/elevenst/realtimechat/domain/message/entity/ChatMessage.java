@@ -70,6 +70,9 @@ public class ChatMessage {
             String content,
             String clientMessageId,
             MessageType messageType,
+            Long productId,
+            String productNameSnapshot,
+            BigDecimal productPriceSnapshot,
             LocalDateTime sentAt
     ) {
         this.chatRoom = chatRoom;
@@ -77,10 +80,46 @@ public class ChatMessage {
         this.content = content;
         this.clientMessageId = clientMessageId;
         this.messageType = messageType;
+        this.productId = productId;
+        this.productNameSnapshot = productNameSnapshot;
+        this.productPriceSnapshot = productPriceSnapshot;
         this.sentAt = sentAt;
     }
 
+    public static ChatMessage text(
+            ChatRoom chatRoom,
+            Long senderId,
+            String content,
+            String clientMessageId,
+            LocalDateTime sentAt
+    ) {
+        return new ChatMessage(chatRoom, senderId, content, clientMessageId, MessageType.TEXT, null, null, null, sentAt);
+    }
+
+    public static ChatMessage productReference(
+            ChatRoom chatRoom,
+            Long senderId,
+            String content,
+            String clientMessageId,
+            Long productId,
+            String productNameSnapshot,
+            BigDecimal productPriceSnapshot,
+            LocalDateTime sentAt
+    ) {
+        return new ChatMessage(
+                chatRoom,
+                senderId,
+                content,
+                clientMessageId,
+                MessageType.PRODUCT_REFERENCE,
+                productId,
+                productNameSnapshot,
+                productPriceSnapshot,
+                sentAt
+        );
+    }
+
     public static ChatMessage system(ChatRoom chatRoom, String content, String clientMessageId, LocalDateTime sentAt) {
-        return new ChatMessage(chatRoom, null, content, clientMessageId, MessageType.SYSTEM, sentAt);
+        return new ChatMessage(chatRoom, null, content, clientMessageId, MessageType.SYSTEM, null, null, null, sentAt);
     }
 }

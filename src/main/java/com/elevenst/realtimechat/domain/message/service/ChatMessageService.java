@@ -1,28 +1,42 @@
 package com.elevenst.realtimechat.domain.message.service;
 
 import com.elevenst.realtimechat.domain.chatroom.entity.ChatRoom;
+import com.elevenst.realtimechat.domain.chatroom.exception.ChatRoomErrorCode;
+import com.elevenst.realtimechat.domain.chatroom.exception.ChatRoomException;
+import com.elevenst.realtimechat.domain.chatroom.repository.ChatRoomParticipantRepository;
+import com.elevenst.realtimechat.domain.chatroom.repository.ChatRoomRepository;
 import com.elevenst.realtimechat.domain.message.dto.ChatMessageHistoryResponse;
+import com.elevenst.realtimechat.domain.message.dto.ChatMessageRequest;
 import com.elevenst.realtimechat.domain.message.dto.ChatMessageResponse;
 import com.elevenst.realtimechat.domain.message.entity.ChatMessage;
+import com.elevenst.realtimechat.domain.message.entity.MessageType;
 import com.elevenst.realtimechat.domain.message.repository.ChatMessageRepository;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ChatMessageService {
 
     private static final int ACTIVE_MESSAGE_RETENTION_DAYS = 30;
 
     private final ChatMessageRepository chatMessageRepository;
+    private final ChatRoomRepository chatRoomRepository;
+    private final ChatRoomParticipantRepository participantRepository;
     private final ChatMessagePublisher chatMessagePublisher;
     private final Clock clock;
+    private final ChatMessagePersistenceService chatMessagePersistenceService;
 
     @Transactional(readOnly = true)
     public ChatMessageHistoryResponse getPreviousMessages(Long chatRoomId, Long cursor, int size) {
@@ -43,6 +57,23 @@ public class ChatMessageService {
     }
 
     @Transactional
+    public ChatMessageResponse sendMessage(Long chatRoomId, Long senderId, ChatMessageRequest request) {
+        ChatRoom room = getRoom(chatRoomId);
+        validateParticipant(room.getId(), senderId);
+
+        MessageType messageType = request.resolvedMessageType();
+        ChatMessage message = chatMessageRepository
+                .findByChatRoomIdAndSenderIdAndClientMessageId(room.getId(), senderId, request.clientMessageId())
+                .map(existingMessage -> {
+                    publishAfterCommit(existingMessage);
+                    return existingMessage;
+                })
+                .orElseGet(() -> saveNewMessage(room, senderId, request, messageType));
+
+        return ChatMessageResponse.from(message);
+    }
+
+    @Transactional
     public void recordParticipantJoined(ChatRoom room, Long memberId, LocalDateTime joinedAt) {
         ChatMessage message = ChatMessage.system(
                 room,
@@ -51,7 +82,7 @@ public class ChatMessageService {
                 joinedAt
         );
         chatMessageRepository.save(message);
-        chatMessagePublisher.publish(message);
+        publishAfterCommit(message);
     }
 
     @Transactional
@@ -63,6 +94,63 @@ public class ChatMessageService {
                 leftAt
         );
         chatMessageRepository.save(message);
-        chatMessagePublisher.publish(message);
+        publishAfterCommit(message);
+    }
+
+    private ChatMessage saveNewMessage(
+            ChatRoom room,
+            Long senderId,
+            ChatMessageRequest request,
+            MessageType messageType
+    ) {
+        try {
+            ChatMessage savedMessage = chatMessagePersistenceService.saveNewMessage(
+                    room.getId(),
+                    senderId,
+                    request,
+                    messageType
+            );
+            publishAfterCommit(savedMessage);
+            return savedMessage;
+        } catch (DataIntegrityViolationException exception) {
+            ChatMessage existingMessage = chatMessageRepository
+                    .findByChatRoomIdAndSenderIdAndClientMessageId(
+                            room.getId(),
+                            senderId,
+                            request.clientMessageId()
+                    )
+                    .orElseThrow(() -> exception);
+            publishAfterCommit(existingMessage);
+            return existingMessage;
+        }
+    }
+
+    private ChatRoom getRoom(Long chatRoomId) {
+        return chatRoomRepository.findById(chatRoomId)
+                .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHAT_ROOM_NOT_FOUND));
+    }
+
+    private void validateParticipant(Long chatRoomId, Long memberId) {
+        if (!participantRepository.existsByChatRoomIdAndMemberIdAndLeftAtIsNull(chatRoomId, memberId)) {
+            throw new ChatRoomException(ChatRoomErrorCode.ACCESS_DENIED);
+        }
+    }
+
+    private void publishAfterCommit(ChatMessage message) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            chatMessagePublisher.publish(message);
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    chatMessagePublisher.publish(message);
+                } catch (RuntimeException exception) {
+                    log.warn("Failed to publish chat message after DB commit. messageId={}", message.getId(), exception);
+                }
+            }
+        });
     }
 }

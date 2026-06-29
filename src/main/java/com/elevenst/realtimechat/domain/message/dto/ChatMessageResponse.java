@@ -11,6 +11,7 @@ public record ChatMessageResponse(
         String content,
         String clientMessageId,
         MessageType messageType,
+        ChatMessageProductResponse product,
         LocalDateTime sentAt
 ) {
 
@@ -22,7 +23,19 @@ public record ChatMessageResponse(
                 message.getContent(),
                 message.getClientMessageId(),
                 message.getMessageType(),
+                productFrom(message),
                 message.getSentAt()
+        );
+    }
+
+    private static ChatMessageProductResponse productFrom(ChatMessage message) {
+        if (message.getProductId() == null) {
+            return null;
+        }
+        return new ChatMessageProductResponse(
+                message.getProductId(),
+                message.getProductNameSnapshot(),
+                message.getProductPriceSnapshot()
         );
     }
 }
