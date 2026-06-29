@@ -13,12 +13,44 @@
 - Spring profile 기본값: `local`
 - 로컬 DB는 `docker-compose.yml`의 MySQL 서비스 값을 사용합니다.
 
-## 로컬 실행
+## Docker Compose 로컬 실행
+
+1. Application, MySQL, Redis를 함께 빌드하고 실행합니다.
+
+```powershell
+docker compose up --build
+```
+
+백그라운드에서 실행하려면 다음 명령을 사용합니다.
+
+```powershell
+docker compose up --build -d
+```
+
+2. Health Check를 확인합니다.
+
+```powershell
+curl.exe http://localhost:8080/health
+```
+
+3. 실행을 종료할 때는 컨테이너를 내립니다.
+
+```powershell
+docker compose down
+```
+
+데이터까지 초기화해야 하는 경우에만 다음 명령을 사용합니다.
+
+```powershell
+docker compose down -v
+```
+
+## Gradle 로컬 실행
 
 1. MySQL과 Redis를 실행합니다.
 
 ```powershell
-docker compose up -d
+docker compose up -d mysql redis
 ```
 
 2. 애플리케이션 실행에 필요한 환경변수를 설정합니다.
@@ -53,12 +85,6 @@ curl.exe http://localhost:8080/health
 docker compose down
 ```
 
-데이터까지 초기화해야 하는 경우에만 다음 명령을 사용합니다.
-
-```powershell
-docker compose down -v
-```
-
 ## 테스트 실행
 
 일반 테스트는 `integration` 태그를 제외하고 실행됩니다.
@@ -86,6 +112,46 @@ docker compose up -d redis
 ```powershell
 $env:PERFORMANCE_TEST = "true"
 .\gradlew.bat integrationTest
+```
+
+## CI/CD 배포
+
+배포 파이프라인은 `.github/workflows/ci-cd.yml`에서 관리합니다.
+`main`, `develop` 브랜치에 push되거나 수동 실행할 때 다음 순서로 동작합니다.
+
+1. Gradle compile, unit test, integration test를 실행합니다.
+2. 테스트가 성공하면 Docker 이미지를 빌드합니다.
+3. 이미지를 Amazon ECR에 commit SHA 태그와 `latest` 태그로 push합니다.
+4. `main` 브랜치 배포 또는 수동 실행 시 Launch Template 새 버전을 생성합니다.
+5. Auto Scaling Group Instance Refresh로 신규 EC2 인스턴스를 교체합니다.
+6. EC2 User Data가 Parameter Store 값을 `.env.runtime` 파일로 만든 뒤 컨테이너를 실행합니다.
+
+GitHub Actions에는 다음 값을 등록해야 합니다.
+
+| 구분 | 이름 | 설명 |
+| --- | --- | --- |
+| Secret | `AWS_ROLE_ARN` | GitHub OIDC가 AssumeRole 할 IAM Role ARN |
+| Variable | `AWS_ACCOUNT_ID` | AWS 계정 ID. 예: `388784542084` |
+| Variable | `AWS_REGION` | AWS Region. 예: `ap-northeast-2` |
+| Variable | `ECR_REPOSITORY` | ECR Repository 이름. 예: `11th-street-app` |
+| Variable | `LAUNCH_TEMPLATE_ID` | 배포 대상 Auto Scaling Group이 사용하는 Launch Template ID |
+| Variable | `ASG_NAME` | Instance Refresh를 실행할 Auto Scaling Group 이름 |
+
+EC2 Instance Role에는 ECR 이미지 pull 권한과 Parameter Store 읽기 권한이 필요합니다.
+런타임 환경변수는 Parameter Store의 `/11th-street/prod` 경로 아래에 저장합니다.
+`DB_PASSWORD`, `JWT_SECRET`처럼 민감한 값은 `SecureString`으로 저장합니다.
+
+```text
+/11th-street/prod/SPRING_PROFILES_ACTIVE
+/11th-street/prod/SERVER_PORT
+/11th-street/prod/DB_URL
+/11th-street/prod/DB_USERNAME
+/11th-street/prod/DB_PASSWORD
+/11th-street/prod/REDIS_HOST
+/11th-street/prod/REDIS_PORT
+/11th-street/prod/JWT_SECRET
+/11th-street/prod/JWT_ACCESS_TOKEN_VALIDITY_SECONDS
+/11th-street/prod/JWT_REFRESH_TOKEN_VALIDITY_SECONDS
 ```
 
 ## 필수 기능 시연
