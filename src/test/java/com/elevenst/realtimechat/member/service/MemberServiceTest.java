@@ -18,6 +18,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -38,7 +39,6 @@ class MemberServiceTest {
     void 회원가입하면_비밀번호는_해시로_저장되고_역할과_상태는_기본값이다() {
         // given
         MemberCreateRequest request = new MemberCreateRequest("buyer@example.com", "plainPassword1", "구매자");
-        given(memberRepository.existsByEmail("buyer@example.com")).willReturn(false);
         given(memberRepository.saveAndFlush(any(Member.class))).willAnswer(invocation -> invocation.getArgument(0));
 
         // when
@@ -59,7 +59,8 @@ class MemberServiceTest {
     void 이미_가입된_이메일이면_예외가_발생한다() {
         // given
         MemberCreateRequest request = new MemberCreateRequest("dup@example.com", "plainPassword1", "중복");
-        given(memberRepository.existsByEmail("dup@example.com")).willReturn(true);
+        given(memberRepository.saveAndFlush(any(Member.class)))
+                .willThrow(new DataIntegrityViolationException("Duplicate entry"));
 
         // when & then
         assertThatThrownBy(() -> memberService.signup(request))
@@ -71,9 +72,8 @@ class MemberServiceTest {
     void 저장시_데이터_정합성_예외가_발생하면_이메일_중복_예외가_발생한다() {
         // given
         MemberCreateRequest request = new MemberCreateRequest("dup@example.com", "plainPassword1", "중복");
-        given(memberRepository.existsByEmail("dup@example.com")).willReturn(false);
         given(memberRepository.saveAndFlush(any(Member.class)))
-                .willThrow(new org.springframework.dao.DataIntegrityViolationException("Duplicate entry"));
+                .willThrow(new DataIntegrityViolationException("Duplicate entry"));
 
         // when & then
         assertThatThrownBy(() -> memberService.signup(request))
