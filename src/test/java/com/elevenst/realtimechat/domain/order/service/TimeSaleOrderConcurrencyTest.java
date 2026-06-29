@@ -1,6 +1,7 @@
 package com.elevenst.realtimechat.domain.order.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
@@ -17,6 +18,7 @@ import com.elevenst.realtimechat.domain.promotion.entity.TimeSale;
 import com.elevenst.realtimechat.domain.promotion.entity.TimeSaleStock;
 import com.elevenst.realtimechat.domain.promotion.repository.TimeSaleRepository;
 import com.elevenst.realtimechat.domain.promotion.repository.TimeSaleStockRepository;
+import com.elevenst.realtimechat.global.support.IdempotencyManager;
 import com.elevenst.realtimechat.global.support.LockManager;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -60,6 +62,9 @@ class TimeSaleOrderConcurrencyTest {
     @MockitoBean
     private LockManager lockManager;
 
+    @MockitoBean
+    private IdempotencyManager idempotencyManager;
+
     @Autowired
     private TimeSaleOrderFacade timeSaleOrderFacade;
 
@@ -88,6 +93,7 @@ class TimeSaleOrderConcurrencyTest {
     void setUp() {
         cleanUp();
         configureLockManager();
+        when(idempotencyManager.checkAndSet(anyString(), anyLong())).thenReturn(true);
     }
 
     @AfterEach

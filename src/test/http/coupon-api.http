@@ -13,9 +13,9 @@
 ###       mysql -urealtime_chat -prealtime_chat realtime_chat \
 ###       -e "UPDATE member SET role='SUPER_ADMIN' WHERE email='admin01@example.com';"
 ###
-### 발급 동시성(분산 락)·멱등성(Request-ID)은 현재 Fake 구현(FakeLockManager,
-### FakeIdempotencyManager)으로 동작합니다. 실제 Redisson/Redis 교체 후에는
-### 동일 Request-ID 재시도가 COUPON_003 으로 막히는지 다시 검증해야 합니다.
+### 멱등성(Request-ID)은 실제 RedisIdempotencyManager(Redis SET NX)로 동작하므로,
+### 동일 Request-ID 재시도는 멱등성 단계에서 COUPON_003 으로 차단됩니다.
+### 발급 동시성(분산 락)은 운영에서 RedissonLockManager가 처리하고, 테스트 profile에서만 FakeLockManager(no-op)로 대체됩니다.
 ### =====================================================================
 
 @host = http://localhost:8080
@@ -290,8 +290,7 @@ Request-ID: coupon-req-0001
 
 
 ### 14. 발급 - 실패: 동일 Request-ID 재시도 (409 COUPON_003)
-### (현재 FakeIdempotencyManager 는 항상 통과하므로, 이 단계는 1인 1장(이미 발급) 규칙으로 COUPON_003 이 됩니다.
-###  실제 Redis 멱등성 교체 후에는 멱등성 단계에서 곧바로 COUPON_003 으로 차단되어야 합니다.)
+### (RedisIdempotencyManager가 동일 Request-ID를 멱등성 단계에서 곧바로 COUPON_003 으로 차단합니다.)
 POST {{host}}/api/v1/coupons/{{activePolicyId}}/issue
 Authorization: Bearer {{buyerToken}}
 Request-ID: coupon-req-0001
