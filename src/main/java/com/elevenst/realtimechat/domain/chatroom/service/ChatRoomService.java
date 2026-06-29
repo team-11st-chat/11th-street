@@ -72,9 +72,7 @@ public class ChatRoomService {
     @Transactional(readOnly = true)
     public ChatMessageHistoryResponse getMessages(Long memberId, Long chatRoomId, Long cursor, int size) {
         validateMessageHistorySize(size);
-        ChatRoom room = getRoom(chatRoomId);
-        validateParticipant(room, memberId);
-        return chatMessageService.getPreviousMessages(room.getId(), cursor, size);
+        return chatMessageService.getPreviousMessages(memberId, chatRoomId, cursor, size);
     }
 
     @Transactional

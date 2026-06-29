@@ -11,6 +11,7 @@ import com.elevenst.realtimechat.domain.message.dto.ChatMessageResponse;
 import com.elevenst.realtimechat.domain.message.entity.ChatMessage;
 import com.elevenst.realtimechat.domain.message.entity.MessageType;
 import com.elevenst.realtimechat.domain.message.repository.ChatMessageRepository;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -28,17 +29,25 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @Slf4j
 public class ChatMessageService {
 
+    private static final int ACTIVE_MESSAGE_RETENTION_DAYS = 30;
+
     private final ChatMessageRepository chatMessageRepository;
     private final ChatRoomRepository chatRoomRepository;
     private final ChatRoomParticipantRepository participantRepository;
     private final ChatMessagePublisher chatMessagePublisher;
+    private final Clock clock;
     private final ChatMessagePersistenceService chatMessagePersistenceService;
 
     @Transactional(readOnly = true)
-    public ChatMessageHistoryResponse getPreviousMessages(Long chatRoomId, Long cursor, int size) {
+    public ChatMessageHistoryResponse getPreviousMessages(Long memberId, Long chatRoomId, Long cursor, int size) {
+        ChatRoom room = getRoom(chatRoomId);
+        validateParticipant(room.getId(), memberId);
+
+        LocalDateTime retentionStartedAt = LocalDateTime.now(clock).minusDays(ACTIVE_MESSAGE_RETENTION_DAYS);
         List<ChatMessage> messages = chatMessageRepository.findPreviousMessages(
-                chatRoomId,
+                room.getId(),
                 cursor,
+                retentionStartedAt,
                 PageRequest.of(0, size + 1)
         );
         boolean hasNext = messages.size() > size;
