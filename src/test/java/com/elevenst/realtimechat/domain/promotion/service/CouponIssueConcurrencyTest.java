@@ -1,6 +1,10 @@
 package com.elevenst.realtimechat.domain.promotion.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 
 import com.elevenst.realtimechat.domain.member.entity.Member;
 import com.elevenst.realtimechat.domain.member.repository.MemberRepository;
@@ -8,6 +12,8 @@ import com.elevenst.realtimechat.domain.promotion.entity.CouponPolicy;
 import com.elevenst.realtimechat.domain.promotion.entity.DiscountType;
 import com.elevenst.realtimechat.domain.promotion.repository.CouponPolicyRepository;
 import com.elevenst.realtimechat.domain.promotion.repository.IssuedCouponRepository;
+import com.elevenst.realtimechat.global.support.IdempotencyManager;
+import com.elevenst.realtimechat.global.support.LockManager;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,12 +41,11 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 /**
  * Issue #26 - 쿠폰 Lock 미적용 동시성 실패(재현) 테스트.
  *
- * <p>현재 운영 코드의 분산 락은 {@link com.elevenst.realtimechat.global.support.FakeLockManager}(no-op)
- * 로 대체되어 있어 실제 직렬화가 일어나지 않는다. 이 상태에서 동시 발급을 발생시켜
- * <b>선착순 쿠폰 초과 발급</b>과 <b>동일 고객 중복 발급</b> 시나리오를 재현한다.
+ * <p>{@code LockManager} 를 no-op 으로 목 처리해(직렬화 없음) 분산 락 미적용 상태를 재현한다.
+ * 이 상태에서 동시 발급을 발생시켜 <b>선착순 쿠폰 초과 발급</b>과 <b>동일 고객 중복 발급</b> 시나리오를 검증한다.
  *
- * <p>각 테스트는 "올바른 불변식"을 단언하므로 락 미적용 상태에서는 초과 발급 케이스가 실패(RED)한다.
- * 다른 Issue 에서 실제 Redisson 분산 락이 {@code FakeLockManager} 를 대체하면 통과(GREEN)로 전환되어야 한다.
+ * <p>각 테스트는 "올바른 불변식"을 단언한다. 락 미적용 상태에서 초과 발급 케이스는 실패(RED)하므로,
+ * 실제 분산 락을 적용한 검증은 {@code LockManager} 목을 직렬화하도록 구성하거나 통합 환경에서 수행한다.
  *
  * <p>반복 실행 조건: {@code readyLatch}/{@code startLatch} 배리어로 동시 출발을 강제하고,
  * 매 실행마다 {@code @BeforeEach}/{@code @AfterEach} 에서 데이터를 초기화한다.
@@ -58,6 +63,12 @@ class CouponIssueConcurrencyTest {
     @MockitoBean
     private StringRedisTemplate stringRedisTemplate;
 
+    @MockitoBean
+    private IdempotencyManager idempotencyManager;
+
+    @MockitoBean
+    private LockManager lockManager;
+
     @Autowired
     private CouponIssueFacade couponIssueFacade;
 
@@ -73,6 +84,9 @@ class CouponIssueConcurrencyTest {
     @BeforeEach
     void setUp() {
         cleanUp();
+        when(idempotencyManager.checkAndSet(anyString(), anyLong())).thenReturn(true);
+        // 분산 락 미적용(no-op) 재현: 락을 항상 획득 성공으로 처리해 직렬화가 없도록 둔다.
+        when(lockManager.tryLock(anyString(), anyLong(), anyLong(), any())).thenReturn(true);
     }
 
     @AfterEach

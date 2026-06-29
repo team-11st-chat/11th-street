@@ -77,12 +77,12 @@
 **구현 매핑**
 
 - 인터페이스: `LockManager` (`tryLock(key, waitTime, leaseTime, unit)` / `unlock(key)`), 기본값 `DEFAULT_WAIT_TIME=3s`, `DEFAULT_LEASE_TIME=2s`.
-- 운영 구현체: `RedissonLockManager` (`@Primary`, `@Profile("!test")`) — `RLock#tryLock`, 해제는 `isHeldByCurrentThread` 확인 후 `unlock`. 획득 중 예외/인터럽트 시 `false` 반환 → 상위에서 Fail-Closed.
-- 테스트 대체(test 프로파일 전용): `FakeLockManager` (`@Profile("test")`, no-op `true` 반환). 로컬 실행 프로파일에서는 `RedissonLockManager`가 주입된다.
+- 운영 구현체: `RedissonLockManager` (`@Primary`, `@Profile("!nolock | prod")`) — `RLock#tryLock`, 해제는 `isHeldByCurrentThread` 확인 후 `unlock`. 획득 중 예외/인터럽트 시 `false` 반환 → 상위에서 Fail-Closed.
+- 테스트 대체: 동시성 테스트는 `LockManager`를 Mockito 목으로 대체해 락 동작(직렬화/no-op)을 제어한다. 운영·로컬·테스트 기본은 `RedissonLockManager`를 사용하고, 부하 측정 전용 `nolock & !prod` 프로파일에서만 `NoOpLockManager`(no-op)로 대체된다. `prod,nolock` 조합에서는 운영 안전을 위해 `RedissonLockManager`가 활성화된다.
 - 타임세일: `TimeSaleOrderFacade` — 키 `lock:timesale:{timeSaleId}`, 획득 실패 시 503. **락 임계영역 안**에서 멱등성 검사(`checkAndSet`) + 수량 차감·주문 생성을 수행한다.
 - 쿠폰: `CouponIssueFacade` — 키 `lock:coupon:{couponPolicyId}`, Wait 3s / Lease 2s, 획득 실패 시 503.
 
-> **멱등성 검사 위치 차이(의도된 설계)**: 두 Facade는 멱등성 검사 시점이 다르다. `TimeSaleOrderFacade`는 **락 획득 이후**(임계영역 안)에서 `checkAndSet`을 호출하고, `CouponIssueFacade`는 **락 획득 이전**에 호출한다. 쿠폰 쪽은 동일 Request-ID의 중복 요청을 **락 대기 없이 먼저 빠르게 거절**(`COUPON_003`)하려는 의도다. 두 방식 모두 정합성에는 문제가 없으며, 멱등성 키 충돌 처리를 락 경합 앞단에 둘지 임계영역 안에 둘지의 트레이드오프(빠른 거절 vs 흐름 단순화) 차이다.
+> **멱등성 검사 위치 차이(의도된 설계)**: 두 Facade는 멱등성 검사 시점이 다르다. `TimeSaleOrderFacade`는 **락 획득 이후**(임계영역 안)에서 `checkAndSet`을 호출하고, `CouponIssueFacade`는 **락 획득 이전**에 호출한다. 쿠폰 쪽은 동일 Request-ID의 중복 요청을 **락 대기 없이 먼저 빠르게 거절**(`COUPON_003`)하려는 의도다. 두 방식 모두 정합성에는 문제가 없으며, 멱등성 키 충돌 처리를 락 경합 앞단에 둘지 임계영역 안에 둘지의 트레이드오프(빠른 거절 vs 흐름 단순화) 차이다. Redis에 선점된 Request-ID는 완료/실패 상태 전환 없이 TTL(현재 10초) 동안 유지되므로, 비즈니스 처리 실패나 락 획득 실패 이후 같은 Request-ID 재시도도 정책상 중복 요청으로 차단된다.
 
 **락 ↔ 트랜잭션 경계**: 락 획득/해제는 `@Transactional` 서비스 호출을 감싸는 **Facade(트랜잭션 바깥)**에 둔다. 서비스가 반환되면 커밋이 끝난 상태이므로 그 다음 `finally`에서 락을 해제한다. 락 해제가 커밋보다 먼저 일어나면 다음 대기 요청이 **미커밋 상태**를 보고 수량·중복 검증을 우회할 수 있기 때문이다.
 
