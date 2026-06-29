@@ -30,6 +30,7 @@
 - **정합성(초과 판매 0)**: 모든 시나리오에서 성공 수가 한정 수량 100과 정확히 일치했고, DB에서 `COMPLETED/ISSUED` 행 수=100, `remaining_quantity=0`을 교차 확인했다. 분산 락이 임계구역을 직렬화해 초과 판매·발급을 0건으로 막았다.
 - **Lock 실패(503)**: 동시성이 커질수록 증가했다(타임세일 500→1,000: 131→214). 단일 락을 3초 안에 얻지 못한 요청이 Policies Fail-Closed 정책대로 503으로 즉시 거절된 것으로, 정합성과 무관한 가용성 지표다(§4 참고).
 - **응답 시간**: p95가 N=1,000에서 8~10초로 Policies 합격 기준 **평균 500ms를 크게 초과**했다. 주원인은 (a) 단일 락 직렬화에 따른 처리량 상한(임계구역 ~50ms → 초당 ~20건), (b) 단일 머신에서 Tomcat 워커(기본 200) 한도를 넘는 1,000 동시 연결의 큐잉이다(병목 분석 §3-3).
+- **근거 파일(커밋됨)**: 위 표의 성공/실패/503/p95 원시 수치는 각 실행의 k6 요약에 들어 있다 — [after-timesale-n500](k6/results/after-timesale-n500/timesale-order-summary.md), [after-timesale-n1000](k6/results/after-timesale-n1000/timesale-order-summary.md), [after-coupon-n500](k6/results/after-coupon-n500/coupon-issue-summary.md), [after-coupon-n1000](k6/results/after-coupon-n1000/coupon-issue-summary.md). 각 디렉터리에 `.md`(요약)와 `.json`(전체 메트릭)이 함께 커밋되어 있어 표의 수치를 그대로 재검증할 수 있다.
 
 ### Before — 분산 락 미적용 (`nolock` 프로파일, 측정 전용)
 
@@ -42,8 +43,9 @@
 - 락을 제거하면 동시 요청이 직렬화되지 않아, 같은 재고·상품 행에 대한 동시 UPDATE가 **InnoDB 데드락**을 유발한다. N=200에서 이미 **약 80%(161/200, 165/200) 요청이 HTTP 500 데드락으로 실패**했다.
 - 성공한 소수(39·35건)조차 **재고 카운터가 주문 수와 불일치**했다(remaining=82 ≠ 100−39=61). read-modify-write의 lost update로 재고가 실제보다 많게 남아 **초과 판매를 허용하는 손상 상태**다.
 - N=1,000에서는 1,000 트랜잭션이 동시에 DB 커넥션 풀(기본 10)을 점유하려다 **풀 고갈 → 신규 연결 거부/타임아웃**으로 측정을 완주하지 못했다. 역설적으로 **분산 락이 DB 부하를 직렬화해 풀 고갈을 막아주고 있었음**을 보여준다.
+- **근거 파일(커밋됨)**: [before-timesale-n200](k6/results/before-timesale-n200/timesale-order-summary.md), [before-coupon-n200](k6/results/before-coupon-n200/coupon-issue-summary.md). 단, **k6 요약은 성공/실패/503/p95만 기록**하므로, 실패의 내역(HTTP 500 데드락)과 재고 카운터 손상은 k6 요약이 아니라 **앱 로그·DB 검증(§3-3)**에서 확인하며 §5 절차로 재현한다. (그래서 위 표의 `실패` 161·165건은 k6 요약상 단순 실패 수이고, 그 전부가 데드락 500이라는 사실은 앱 로그 근거다.)
 
-> 참고: 각 실행의 k6 요약은 `results/<run-id>/`에 생성되는 런타임 산출물이다(README 정책상 커밋 비필수). `results/debug-*`는 초기 검증용 디버그 실행으로 회귀 기준값이 아니며, smoke(10/10) 초기 결과는 `results/timesale-order-summary.md` 등에 남아 있다.
+> 참고: 위 측정의 k6 요약은 재검증을 위해 `results/<run-id>/`에 커밋했다(`.md`=요약 수치, `.json`=전체 메트릭). smoke(10/10) 초기 결과도 [timesale-order-summary.md](k6/results/timesale-order-summary.md)·[coupon-issue-summary.md](k6/results/coupon-issue-summary.md)에 있다. `results/.gitignore`는 즉석·로컬 재실행 산출물을 기본 무시하므로 **커밋된 근거 파일만 추적**되며(즉석 재실행 결과는 추적되지 않음), `results/debug-*`는 초기 검증용 디버그 실행으로 회귀 기준값이 아니다.
 
 ---
 
