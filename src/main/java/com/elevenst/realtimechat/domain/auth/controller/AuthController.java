@@ -36,7 +36,7 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
         AuthTokens tokens = authService.login(request);
-        LoginResponse body = LoginResponse.of(tokens.accessToken(), tokens.accessTokenExpiresIn());
+        LoginResponse body = LoginResponse.of(tokens);
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshCookie(tokens.refreshToken()).toString())
                 .body(ApiResponse.success(body));
@@ -46,7 +46,7 @@ public class AuthController {
     public ResponseEntity<ApiResponse<LoginResponse>> refresh(
             @CookieValue(name = REFRESH_TOKEN_COOKIE, required = false) String refreshToken) {
         AuthTokens tokens = authService.refresh(refreshToken);
-        LoginResponse body = LoginResponse.of(tokens.accessToken(), tokens.accessTokenExpiresIn());
+        LoginResponse body = LoginResponse.of(tokens);
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshCookie(tokens.refreshToken()).toString())
                 .body(ApiResponse.success(body));
