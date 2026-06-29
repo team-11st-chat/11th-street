@@ -135,6 +135,10 @@
 4. **After**는 위 그대로(락 적용). **Before**는 동일 환경에서 `SPRING_PROFILES_ACTIVE=local,nolock`으로 앱을 재기동해 분산 락만 제거(`NoOpLockManager`)하고 같은 절차로 측정한다.
 5. 각 실행 후 DB 검증 SQL로 `remaining_quantity`와 상태별 행 수=성공 수를 교차 확인한다.
 
-> `nolock` 프로파일은 Before 기준선(락 미적용) 재현을 위한 **측정 전용**이며, `local`/`prod` 기본 실행에는 포함되지 않는다(운영은 항상 `RedissonLockManager`). 코드: `global/lock/NoOpLockManager.java`(`@Profile("nolock")`), `RedissonLockManager`(`@Profile("!test & !nolock")`).
+> `nolock` 프로파일은 Before 기준선(락 미적용) 재현을 위한 **측정 전용**이며,
+> `local` 기본 실행에는 포함되지 않는다. `prod`와 `nolock`이 함께 활성화되면
+> 운영 안전을 위해 `RedissonLockManager`가 유지된다.
+> 코드: `global/lock/NoOpLockManager.java`(`@Profile("nolock & !prod")`),
+> `RedissonLockManager`(`@Profile("!nolock | prod")`).
 
 > 단일 머신 한계: 본 측정은 서버·부하 생성기·DB를 한 머신에서 실행했다. 절대 응답 시간(평균 500ms 목표 대비)은 분리 환경에서 재측정이 필요하며, 정합성(초과 판매 0)과 Before/After 대비는 환경과 무관하게 유효하다.
