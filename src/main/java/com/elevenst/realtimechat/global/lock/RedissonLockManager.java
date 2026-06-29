@@ -13,9 +13,10 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Primary
 @Component
-// 운영 분산 락 구현체. nolock 은 보고서의 Before(락 미적용) 측정 전용 프로파일이므로,
-// 그때만 NoOpLockManager 가 대신 활성화되고 이 빈은 제외된다(local/prod 기본은 항상 이 구현체).
-@Profile("!test & !nolock")
+// 단일 분산 락 구현체(test 포함 모든 환경의 기본 LockManager). nolock 은 보고서의 Before(락 미적용)
+// 측정 전용 프로파일이라 그때만 NoOpLockManager 가 대신 활성화된다. 동시성 테스트는 LockManager 를
+// Mockito 로 대체해 락 동작(직렬화/no-op)을 직접 제어한다.
+@Profile("!nolock")
 @RequiredArgsConstructor
 public class RedissonLockManager implements LockManager {
 

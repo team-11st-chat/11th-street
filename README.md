@@ -92,4 +92,4 @@ $env:PERFORMANCE_TEST = "true"
 
 필수 기능 시연 순서는 [docs/demo-script.md](docs/demo-script.md)를 따릅니다.
 
-현재 시연 범위는 MVP Wiki의 최종 시연 시나리오 중 로컬에서 확인 가능한 회원, 상품, 검색, 인기 검색어, 타임세일 주문, 쿠폰 발급 흐름입니다. 로컬 실행 profile에서는 Redis 기반 `RedissonLockManager`가 분산 락을, `RedisIdempotencyManager`가 Request-ID 멱등성을 처리합니다. 멱등성은 단일 구현체(`RedisIdempotencyManager`)를 모든 profile에서 사용하며, 분산 락만 테스트 profile에서 `FakeLockManager`(no-op)로 대체됩니다.
+현재 시연 범위는 MVP Wiki의 최종 시연 시나리오 중 로컬에서 확인 가능한 회원, 상품, 검색, 인기 검색어, 타임세일 주문, 쿠폰 발급 흐름입니다. 로컬 실행 profile에서는 Redis 기반 `RedissonLockManager`가 분산 락을, `RedisIdempotencyManager`가 Request-ID 멱등성을 처리합니다. 둘 다 단일 구현체를 모든 profile에서 사용하며(동시성 테스트는 Mockito로 `LockManager`·`IdempotencyManager`를 대체), 분산 락은 부하 측정 전용 `nolock` profile에서만 `NoOpLockManager`로 대체됩니다.

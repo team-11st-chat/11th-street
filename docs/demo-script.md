@@ -8,7 +8,7 @@
 - README의 환경변수를 설정한 뒤 `.\gradlew.bat bootRun`으로 서버를 실행합니다.
 - 로컬 DB가 이전 시연 데이터로 오염된 경우 `docker compose down -v` 후 다시 시작합니다.
 - 현재 회원 가입 API는 기본 역할을 `BUYER`로 생성합니다. 상품 등록에는 `SELLER`, 쿠폰 정책 등록에는 `SUPER_ADMIN` 권한이 필요하므로 시연 중 역할 변경 SQL을 사용합니다.
-- 로컬 실행 profile에서는 쿠폰 발급과 타임세일 주문의 분산 락을 `RedissonLockManager`가 처리합니다. `FakeLockManager`는 테스트 profile에서만 사용됩니다.
+- 로컬 실행 profile에서는 쿠폰 발급과 타임세일 주문의 분산 락을 `RedissonLockManager`가 처리합니다. 동시성 테스트에서는 `LockManager`를 Mockito 목으로 대체하고, 부하 측정 전용 `nolock` 프로파일에서는 `NoOpLockManager`로 대체됩니다.
 - 멱등성 처리는 현재 `FakeIdempotencyManager`를 사용하므로, Redis 기반 실제 멱등성 구현체 교체 후 중복 요청 시나리오를 다시 검증해야 합니다.
 
 ## 1. Health Check

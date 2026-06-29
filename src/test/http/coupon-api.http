@@ -15,7 +15,7 @@
 ###
 ### 멱등성(Request-ID)은 실제 RedisIdempotencyManager(Redis SET NX)로 동작하므로,
 ### 동일 Request-ID 재시도는 멱등성 단계에서 COUPON_003 으로 차단됩니다.
-### 발급 동시성(분산 락)은 운영에서 RedissonLockManager가 처리하고, 테스트 profile에서만 FakeLockManager(no-op)로 대체됩니다.
+### 발급 동시성(분산 락)은 RedissonLockManager가 처리하며, 동시성 테스트에서는 LockManager를 목으로 대체합니다.
 ### =====================================================================
 
 @host = http://localhost:8080

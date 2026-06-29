@@ -78,7 +78,7 @@
 
 - 인터페이스: `LockManager` (`tryLock(key, waitTime, leaseTime, unit)` / `unlock(key)`), 기본값 `DEFAULT_WAIT_TIME=3s`, `DEFAULT_LEASE_TIME=2s`.
 - 운영 구현체: `RedissonLockManager` (`@Primary`, `@Profile("!test")`) — `RLock#tryLock`, 해제는 `isHeldByCurrentThread` 확인 후 `unlock`. 획득 중 예외/인터럽트 시 `false` 반환 → 상위에서 Fail-Closed.
-- 테스트 대체(test 프로파일 전용): `FakeLockManager` (`@Profile("test")`, no-op `true` 반환). 로컬 실행 프로파일에서는 `RedissonLockManager`가 주입된다.
+- 테스트 대체: 동시성 테스트는 `LockManager`를 Mockito 목으로 대체해 락 동작(직렬화/no-op)을 제어한다. 운영·로컬·테스트 기본은 `RedissonLockManager`를 사용하고, 부하 측정 전용 `nolock` 프로파일에서만 `NoOpLockManager`(no-op)로 대체된다.
 - 타임세일: `TimeSaleOrderFacade` — 키 `lock:timesale:{timeSaleId}`, 획득 실패 시 503. **락 임계영역 안**에서 멱등성 검사(`checkAndSet`) + 수량 차감·주문 생성을 수행한다.
 - 쿠폰: `CouponIssueFacade` — 키 `lock:coupon:{couponPolicyId}`, Wait 3s / Lease 2s, 획득 실패 시 503.
 

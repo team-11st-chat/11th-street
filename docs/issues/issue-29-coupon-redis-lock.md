@@ -31,11 +31,13 @@
 
 > 멱등성 Fake 는 이슈 #29 범위가 아니며 별도 이슈에서 실제 구현체로 교체된다.
 
+> 업데이트: 이후 `FakeIdempotencyManager`·`FakeLockManager`는 제거되었고, 각각 `RedisIdempotencyManager`·`RedissonLockManager`(단일 구현체)가 모든 프로파일의 기본이 되었다(분산 락은 부하 측정 전용 `nolock` 프로파일에서만 `NoOpLockManager`로 대체). 동시성 테스트는 `LockManager`/`IdempotencyManager`를 Mockito 목으로 대체한다.
+
 ## 3. 테스트 미작성 사유
 
 이번 작업 합의에 따라 신규 테스트를 추가하지 않았다. 동시성 재현 테스트
 `CouponIssueConcurrencyTest#couponOverIssuingReproduced` 는 `@Disabled` 상태이며,
-`test` 프로파일에서는 `FakeLockManager`(no-op) 가 주입되어 실제 직렬화가 일어나지 않으므로
+동시성 테스트에서는 `LockManager` 목(no-op) 으로 대체되어 실제 직렬화가 일어나지 않으므로
 이 테스트의 GREEN 전환은 통합 테스트 인프라(실제 Redis/Redisson)가 갖춰진 뒤에 검증한다.
 
 ## 4. 추후 테스트 시나리오
