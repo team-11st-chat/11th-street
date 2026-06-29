@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-@Profile("nolock")
+@Profile("nolock & !prod")
 public class NoOpLockManager implements LockManager {
 
     @Override

@@ -29,7 +29,7 @@ public class CouponIssueFacade {
     private final IdempotencyManager idempotencyManager;
 
     public IssuedCouponResponse issueCoupon(Long memberId, Long couponPolicyId, String requestId) {
-        // Request-ID 기반 멱등성 보호: 동일 요청 재시도 시 중복 발급으로 처리한다.
+        // Request-ID 기반 멱등성 보호: 키 선점 이후 실패한 동일 Request-ID도 TTL 동안 중복 요청으로 처리한다.
         if (!idempotencyManager.checkAndSet(requestId, REQUEST_ID_TTL_SECONDS)) {
             throw new CouponException(CouponErrorCode.COUPON_003);
         }

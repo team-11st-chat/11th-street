@@ -12,7 +12,8 @@ import org.springframework.stereotype.Component;
  *
  * <p>Policies 「Request ID 기반 동일 요청 재시도 및 멱등성 처리 정책」을 구현한다. {@code SET key value NX EX ttl}
  * (Spring Data Redis {@code setIfAbsent})로 Request-ID를 원자적으로 선점한다. 최초 요청이면 키를 등록하고
- * {@code true}(진행)를 반환하고, 이미 등록된 Request-ID면 키가 존재해 {@code false}(중복)를 반환한다.
+ * {@code true}(진행)를 반환하고, 이미 등록된 Request-ID면 키가 존재해 {@code false}(중복)를 반환한다. 키는
+ * 완료/실패 상태 전환 없이 TTL 동안 유지되므로, 처리 중이거나 실패한 동일 Request-ID도 정책상 중복 요청으로 차단된다.
  *
  * <p>Redis 장애로 멱등성을 보장할 수 없으면 정합성을 위해 Fail-Closed로 동작한다(Policies: Redis 장애 시 즉시 거절).
  * 모든 프로파일에서 사용하는 유일한 구현체이며, 단위 테스트는 Mockito로 {@link IdempotencyManager}를 대체한다.
