@@ -4,6 +4,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.elevenst.realtimechat.domain.chatroom.repository.ChatRoomParticipantRepository;
+import com.elevenst.realtimechat.domain.chatroom.repository.ChatRoomRepository;
 import com.elevenst.realtimechat.domain.message.repository.ChatMessageRepository;
 import java.time.Clock;
 import java.time.Instant;
@@ -24,7 +26,16 @@ class ChatMessageServiceTest {
     private ChatMessageRepository chatMessageRepository;
 
     @Mock
+    private ChatRoomRepository chatRoomRepository;
+
+    @Mock
+    private ChatRoomParticipantRepository participantRepository;
+
+    @Mock
     private ChatMessagePublisher chatMessagePublisher;
+
+    @Mock
+    private ChatMessagePersistenceService chatMessagePersistenceService;
 
     private ChatMessageService chatMessageService;
 
@@ -34,7 +45,14 @@ class ChatMessageServiceTest {
                 Instant.parse("2026-06-26T03:00:00Z"),
                 ZoneId.of("Asia/Seoul")
         );
-        chatMessageService = new ChatMessageService(chatMessageRepository, chatMessagePublisher, clock);
+        chatMessageService = new ChatMessageService(
+                chatMessageRepository,
+                chatRoomRepository,
+                participantRepository,
+                chatMessagePublisher,
+                clock,
+                chatMessagePersistenceService
+        );
     }
 
     @Test
