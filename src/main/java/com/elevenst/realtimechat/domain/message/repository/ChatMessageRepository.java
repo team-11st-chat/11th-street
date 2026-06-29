@@ -1,6 +1,7 @@
 package com.elevenst.realtimechat.domain.message.repository;
 
 import com.elevenst.realtimechat.domain.message.entity.ChatMessage;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -14,11 +15,13 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
             from ChatMessage message
             where message.chatRoom.id = :chatRoomId
               and (:cursor is null or message.id < :cursor)
+              and message.sentAt >= :retentionStartedAt
             order by message.id desc
             """)
     List<ChatMessage> findPreviousMessages(
             @Param("chatRoomId") Long chatRoomId,
             @Param("cursor") Long cursor,
+            @Param("retentionStartedAt") LocalDateTime retentionStartedAt,
             Pageable pageable
     );
 }

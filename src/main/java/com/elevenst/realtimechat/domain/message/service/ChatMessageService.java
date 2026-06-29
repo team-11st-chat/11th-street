@@ -5,6 +5,7 @@ import com.elevenst.realtimechat.domain.message.dto.ChatMessageHistoryResponse;
 import com.elevenst.realtimechat.domain.message.dto.ChatMessageResponse;
 import com.elevenst.realtimechat.domain.message.entity.ChatMessage;
 import com.elevenst.realtimechat.domain.message.repository.ChatMessageRepository;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -17,14 +18,19 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ChatMessageService {
 
+    private static final int ACTIVE_MESSAGE_RETENTION_DAYS = 30;
+
     private final ChatMessageRepository chatMessageRepository;
     private final ChatMessagePublisher chatMessagePublisher;
+    private final Clock clock;
 
     @Transactional(readOnly = true)
     public ChatMessageHistoryResponse getPreviousMessages(Long chatRoomId, Long cursor, int size) {
+        LocalDateTime retentionStartedAt = LocalDateTime.now(clock).minusDays(ACTIVE_MESSAGE_RETENTION_DAYS);
         List<ChatMessage> messages = chatMessageRepository.findPreviousMessages(
                 chatRoomId,
                 cursor,
+                retentionStartedAt,
                 PageRequest.of(0, size + 1)
         );
         boolean hasNext = messages.size() > size;
