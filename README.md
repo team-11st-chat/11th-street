@@ -120,11 +120,12 @@ $env:PERFORMANCE_TEST = "true"
 `main`, `develop` 브랜치에 push되거나 수동 실행할 때 다음 순서로 동작합니다.
 
 1. Gradle compile, unit test, integration test를 실행합니다.
-2. 테스트가 성공하면 Docker 이미지를 빌드합니다.
-3. 이미지를 Amazon ECR에 commit SHA 태그와 `latest` 태그로 push합니다.
-4. `main` 브랜치 배포 또는 수동 실행 시 Launch Template 새 버전을 생성합니다.
-5. Auto Scaling Group Instance Refresh로 신규 EC2 인스턴스를 교체합니다.
-6. EC2 User Data가 Parameter Store 값을 `.env.runtime` 파일로 만든 뒤 컨테이너를 실행합니다.
+2. 테스트가 성공하면 Docker 이미지 빌드 가능 여부를 확인합니다.
+3. PR에서는 ECR, Launch Template, Auto Scaling Group, Parameter Store 접근을 dry run으로 검증합니다.
+4. push 또는 수동 실행에서는 이미지를 Amazon ECR에 commit SHA 태그와 `latest` 태그로 push합니다.
+5. `main` 브랜치 배포 또는 수동 실행 시 Launch Template 새 버전을 생성합니다.
+6. Auto Scaling Group Instance Refresh로 신규 EC2 인스턴스를 교체합니다.
+7. EC2 User Data가 Parameter Store 값을 `.env.runtime` 파일로 만든 뒤 컨테이너를 실행합니다.
 
 GitHub Actions에는 다음 값을 등록해야 합니다.
 

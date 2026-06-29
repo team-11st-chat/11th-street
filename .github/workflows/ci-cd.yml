@@ -66,6 +66,81 @@ jobs:
       - name: Build JAR
         run: ./gradlew bootJar --no-daemon
 
+      - name: Build Docker image
+        run: docker build -t 11th-street-app:ci .
+
+  cd-dry-run:
+    name: CD Dry Run
+    needs: verify
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Validate deployment resources
+        env:
+          AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+          LAUNCH_TEMPLATE_ID: ${{ vars.LAUNCH_TEMPLATE_ID }}
+          ASG_NAME: ${{ vars.ASG_NAME }}
+          PARAMETER_PREFIX: /11th-street/prod
+        run: |
+          test -n "${AWS_ACCOUNT_ID}"
+          test -n "${AWS_REGION}"
+          test -n "${ECR_REPOSITORY}"
+          test -n "${LAUNCH_TEMPLATE_ID}"
+          test -n "${ASG_NAME}"
+
+          aws sts get-caller-identity
+
+          aws ecr describe-repositories \
+            --repository-names "${ECR_REPOSITORY}" \
+            --region "${AWS_REGION}" \
+            --query 'repositories[0].repositoryUri' \
+            --output text
+
+          aws ec2 describe-launch-template-versions \
+            --launch-template-id "${LAUNCH_TEMPLATE_ID}" \
+            --versions '$Latest' \
+            --region "${AWS_REGION}" \
+            --query 'LaunchTemplateVersions[0].VersionNumber' \
+            --output text
+
+          aws autoscaling describe-auto-scaling-groups \
+            --auto-scaling-group-names "${ASG_NAME}" \
+            --region "${AWS_REGION}" \
+            --query 'AutoScalingGroups[0].AutoScalingGroupName' \
+            --output text
+
+          PARAMETER_NAMES=$(aws ssm get-parameters-by-path \
+            --region "${AWS_REGION}" \
+            --path "${PARAMETER_PREFIX}" \
+            --with-decryption \
+            --recursive \
+            --query 'Parameters[].Name' \
+            --output text)
+
+          for name in \
+            SPRING_PROFILES_ACTIVE \
+            SERVER_PORT \
+            DB_URL \
+            DB_USERNAME \
+            DB_PASSWORD \
+            REDIS_HOST \
+            REDIS_PORT \
+            JWT_SECRET \
+            JWT_ACCESS_TOKEN_VALIDITY_SECONDS \
+            JWT_REFRESH_TOKEN_VALIDITY_SECONDS
+          do
+            echo "${PARAMETER_NAMES}" | grep -q "${PARAMETER_PREFIX}/${name}"
+          done
+
   build-and-push:
     name: Build and Push Docker Image
     needs: verify
