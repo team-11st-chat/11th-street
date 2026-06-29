@@ -36,7 +36,7 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
         AuthTokens tokens = authService.login(request);
-        LoginResponse body = LoginResponse.of(tokens.accessToken(), tokens.accessTokenExpiresIn());
+        LoginResponse body = LoginResponse.of(tokens);
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshCookie(tokens.refreshToken()).toString())
                 .body(ApiResponse.success(body));
@@ -46,7 +46,7 @@ public class AuthController {
     public ResponseEntity<ApiResponse<LoginResponse>> refresh(
             @CookieValue(name = REFRESH_TOKEN_COOKIE, required = false) String refreshToken) {
         AuthTokens tokens = authService.refresh(refreshToken);
-        LoginResponse body = LoginResponse.of(tokens.accessToken(), tokens.accessTokenExpiresIn());
+        LoginResponse body = LoginResponse.of(tokens);
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshCookie(tokens.refreshToken()).toString())
                 .body(ApiResponse.success(body));
@@ -56,17 +56,23 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Void>> logout(
             @CookieValue(name = REFRESH_TOKEN_COOKIE, required = false) String refreshToken,
             @RequestHeader(name = HttpHeaders.AUTHORIZATION, required = false) String authorization) {
-        authService.logout(refreshToken, resolveBearerToken(authorization));
+        authService.logout(normalizeToken(refreshToken), resolveBearerToken(authorization));
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, expiredRefreshCookie().toString())
                 .body(ApiResponse.success());
     }
 
     private String resolveBearerToken(String authorization) {
-        if (authorization != null && authorization.startsWith(BEARER_PREFIX)) {
-            return authorization.substring(BEARER_PREFIX.length());
+        if (authorization == null || !authorization.startsWith(BEARER_PREFIX)) {
+            return null;
         }
-        return null;
+
+        String token = authorization.substring(BEARER_PREFIX.length());
+        if (token.isBlank()) {
+            return null;
+        }
+
+        return token;
     }
 
     private ResponseCookie expiredRefreshCookie() {
@@ -87,5 +93,12 @@ public class AuthController {
                 .path("/")
                 .maxAge(Duration.ofSeconds(jwtTokenProvider.getRefreshTokenValiditySeconds()))
                 .build();
+    }
+
+    private String normalizeToken(String token) {
+        if (token == null || token.isBlank()) {
+            return null;
+        }
+        return token;
     }
 }

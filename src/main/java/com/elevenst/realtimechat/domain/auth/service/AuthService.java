@@ -119,7 +119,7 @@ public class AuthService {
     }
 
     private void revokeRefreshToken(String refreshToken) {
-        if (refreshToken == null || refreshToken.isBlank()) {
+        if (hasNoText(refreshToken)) {
             return;
         }
         try {
@@ -133,7 +133,7 @@ public class AuthService {
     }
 
     private void blacklistAccessToken(String accessToken) {
-        if (accessToken == null || accessToken.isBlank()) {
+        if (hasNoText(accessToken)) {
             return;
         }
         try {
@@ -145,5 +145,9 @@ public class AuthService {
         } catch (JwtException | IllegalArgumentException ignored) {
             // 만료·위조된 Access Token 은 블랙리스트에 등록할 필요가 없다.
         }
+    }
+
+    private boolean hasNoText(String token) {
+        return token == null || token.isBlank();
     }
 }

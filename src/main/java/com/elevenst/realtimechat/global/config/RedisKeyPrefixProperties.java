@@ -10,12 +10,11 @@ import org.springframework.util.StringUtils;
 @ConfigurationProperties(prefix = "app.redis.key-prefix")
 public class RedisKeyPrefixProperties {
 
-    // Bump this version when cached DTO serialization shape changes and old Redis cache entries must be ignored.
     @NotBlank
-    private String cache = "cache:v1:";
+    private String cache;
 
     @NotBlank
-    private String lock = "lock:";
+    private String lock;
 
     public String getCache() {
         return cache;
