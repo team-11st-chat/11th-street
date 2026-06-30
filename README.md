@@ -132,6 +132,22 @@ $env:PERFORMANCE_TEST = "true"
 5. `main` 브랜치 배포 또는 수동 실행 시 Launch Template 새 버전을 생성합니다.
 6. Auto Scaling Group Instance Refresh로 신규 EC2 인스턴스를 교체합니다.
 7. EC2 User Data가 Redis를 인스턴스 서비스로 실행하고, Parameter Store 값을 `.env.runtime` 파일로 만든 뒤 애플리케이션 컨테이너를 실행합니다.
+8. 배포 후 Health Check를 최대 20회 호출하고, 모두 실패하면 이전 정상 버전으로 롤백합니다.
+
+### Health Check와 자동 롤백
+
+EC2 User Data는 새 컨테이너를 실행한 뒤 `http://localhost:${SERVER_PORT:-8080}/health`를 최대 20회 확인합니다.
+모두 실패하면 User Data가 실패로 종료되고, 새 인스턴스는 Instance Refresh의 정상 교체 대상으로 인정되지 않습니다.
+
+GitHub Actions는 배포 전에 Launch Template의 기존 default version을 저장합니다.
+Instance Refresh 또는 외부 `HEALTHCHECK_URL` 검증이 실패하면 Launch Template default version을 이전 값으로 되돌린 뒤 Instance Refresh를 다시 시작합니다.
+이 흐름은 실패한 새 배포 버전이 Auto Scaling Group의 기본 시작 구성으로 남지 않게 하기 위한 복구 절차입니다.
+
+Auto Scaling Group 헬스체크는 애플리케이션 장애를 감지할 수 있도록 ELB Target Group 헬스체크와 연동하는 것을 권장합니다.
+EC2 헬스체크만 사용하면 인스턴스 부팅은 성공했지만 애플리케이션 컨테이너가 비정상인 상태를 Instance Refresh가 성공으로 판단할 수 있습니다.
+User Data 성공 여부를 인프라 수준에서 명시적으로 제어해야 하는 경우에는 Auto Scaling Lifecycle Hook으로 부팅 및 애플리케이션 준비 완료 신호를 전달합니다.
+
+수동 복구가 필요한 경우에는 AWS 콘솔 또는 CLI에서 Launch Template default version을 마지막 정상 버전으로 변경한 뒤 Auto Scaling Group Instance Refresh를 다시 실행합니다.
 
 GitHub Actions에는 다음 값을 등록해야 합니다.
 
