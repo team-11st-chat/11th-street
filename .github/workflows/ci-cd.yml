@@ -277,6 +277,13 @@ jobs:
           IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
           LAUNCH_TEMPLATE_ID: ${{ vars.LAUNCH_TEMPLATE_ID }}
         run: |
+          PREVIOUS_VERSION=$(aws ec2 describe-launch-template-versions \
+            --launch-template-id "${LAUNCH_TEMPLATE_ID}" \
+            --versions '$Default' \
+            --region "${AWS_REGION}" \
+            --query 'LaunchTemplateVersions[0].VersionNumber' \
+            --output text)
+
           USER_DATA=$(sed \
             -e "s|__AWS_ACCOUNT_ID__|${AWS_ACCOUNT_ID}|g" \
             -e "s|__AWS_REGION__|${AWS_REGION}|g" \
@@ -295,6 +302,7 @@ jobs:
             --launch-template-id "${LAUNCH_TEMPLATE_ID}" \
             --default-version "${VERSION}"
 
+          echo "previous_version=${PREVIOUS_VERSION}" >> "$GITHUB_OUTPUT"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Start instance refresh
@@ -350,6 +358,48 @@ jobs:
 
             echo "Health check attempt ${i}/3 failed"
             sleep 10
+          done
+
+          exit 1
+
+      - name: Roll back launch template on deployment failure
+        if: failure() && steps.launch-template.outputs.previous_version != ''
+        env:
+          ASG_NAME: ${{ vars.ASG_NAME }}
+          LAUNCH_TEMPLATE_ID: ${{ vars.LAUNCH_TEMPLATE_ID }}
+          PREVIOUS_VERSION: ${{ steps.launch-template.outputs.previous_version }}
+        run: |
+          aws ec2 modify-launch-template \
+            --launch-template-id "${LAUNCH_TEMPLATE_ID}" \
+            --default-version "${PREVIOUS_VERSION}"
+
+          aws autoscaling cancel-instance-refresh \
+            --auto-scaling-group-name "${ASG_NAME}" || true
+
+          ROLLBACK_REFRESH_ID=$(aws autoscaling start-instance-refresh \
+            --auto-scaling-group-name "${ASG_NAME}" \
+            --preferences '{"MinHealthyPercentage":100,"InstanceWarmup":120}' \
+            --query 'InstanceRefreshId' \
+            --output text)
+
+          for i in $(seq 1 30); do
+            STATUS=$(aws autoscaling describe-instance-refreshes \
+              --auto-scaling-group-name "${ASG_NAME}" \
+              --instance-refresh-ids "${ROLLBACK_REFRESH_ID}" \
+              --query 'InstanceRefreshes[0].Status' \
+              --output text)
+
+            echo "Rollback attempt ${i}/30 - status: ${STATUS}"
+
+            if [ "${STATUS}" = "Successful" ]; then
+              exit 0
+            fi
+
+            if [ "${STATUS}" = "Failed" ] || [ "${STATUS}" = "Cancelled" ]; then
+              exit 1
+            fi
+
+            sleep 30
           done
 
           exit 1

@@ -10,11 +10,14 @@ APP_DIR="/opt/11th-street"
 PARAMETER_PREFIX="/11th-street/prod"
 CONTAINER_NAME="11th-street-app"
 ENV_FILE="${APP_DIR}/.env.runtime"
+HEALTHCHECK_ATTEMPTS=3
+HEALTHCHECK_INTERVAL_SECONDS=10
 
 ECR_URI="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}"
+TARGET_IMAGE="${ECR_URI}:${IMAGE_TAG}"
 
 dnf update -y
-dnf install -y docker awscli python3
+dnf install -y docker awscli python3 curl
 dnf install -y redis6 || dnf install -y redis
 systemctl enable --now docker
 
@@ -76,21 +79,100 @@ PY
   done
 }
 
+get_env_value() {
+  local key="$1"
+
+  if [ ! -f "${ENV_FILE}" ]; then
+    return 0
+  fi
+
+  awk -F= -v key="${key}" '$1 == key { print substr($0, length(key) + 2); exit }' "${ENV_FILE}"
+}
+
+get_server_port() {
+  local server_port
+  server_port=$(get_env_value "SERVER_PORT")
+
+  if [ -z "${server_port}" ]; then
+    echo "8080"
+    return
+  fi
+
+  echo "${server_port}"
+}
+
+get_healthcheck_url() {
+  echo "http://localhost:$(get_server_port)/health"
+}
+
+get_running_container_image() {
+  if ! docker inspect "${CONTAINER_NAME}" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  docker inspect --format '{{.Config.Image}}' "${CONTAINER_NAME}"
+}
+
+run_app_container() {
+  local image="$1"
+
+  docker rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
+  docker run -d \
+    --name "${CONTAINER_NAME}" \
+    --restart unless-stopped \
+    --env-file "${ENV_FILE}" \
+    --network host \
+    "${image}"
+}
+
+wait_for_health() {
+  local healthcheck_url
+  healthcheck_url=$(get_healthcheck_url)
+
+  for attempt in $(seq 1 "${HEALTHCHECK_ATTEMPTS}"); do
+    if curl --fail --silent --show-error "${healthcheck_url}" >/dev/null; then
+      echo "Health check succeeded on attempt ${attempt}/${HEALTHCHECK_ATTEMPTS}."
+      return 0
+    fi
+
+    echo "Health check attempt ${attempt}/${HEALTHCHECK_ATTEMPTS} failed."
+    sleep "${HEALTHCHECK_INTERVAL_SECONDS}"
+  done
+
+  return 1
+}
+
+rollback_container() {
+  local previous_image="$1"
+
+  if [ -z "${previous_image}" ]; then
+    echo "Rollback skipped because no previous container image was found."
+    return 1
+  fi
+
+  echo "Rolling back to previous container image."
+  run_app_container "${previous_image}"
+  wait_for_health
+}
+
 start_redis
 write_env_file
 chmod 600 "${ENV_FILE}"
+
+PREVIOUS_IMAGE=$(get_running_container_image)
 
 aws ecr get-login-password --region "${AWS_REGION}" | \
   docker login --username AWS --password-stdin \
   "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 
-docker pull "${ECR_URI}:${IMAGE_TAG}"
+docker pull "${TARGET_IMAGE}"
 
-docker rm -f "${CONTAINER_NAME}" || true
+run_app_container "${TARGET_IMAGE}"
 
-docker run -d \
-  --name "${CONTAINER_NAME}" \
-  --restart unless-stopped \
-  --env-file "${ENV_FILE}" \
-  --network host \
-  "${ECR_URI}:${IMAGE_TAG}"
+if wait_for_health; then
+  echo "Deployment health check completed successfully."
+  exit 0
+fi
+
+echo "Deployment health check failed. Starting rollback."
+rollback_container "${PREVIOUS_IMAGE}"
