@@ -132,13 +132,12 @@ $env:PERFORMANCE_TEST = "true"
 5. `main` 브랜치 배포 또는 수동 실행 시 Launch Template 새 버전을 생성합니다.
 6. Auto Scaling Group Instance Refresh로 신규 EC2 인스턴스를 교체합니다.
 7. EC2 User Data가 Redis를 인스턴스 서비스로 실행하고, Parameter Store 값을 `.env.runtime` 파일로 만든 뒤 애플리케이션 컨테이너를 실행합니다.
-8. 배포 후 Health Check를 3회 호출하고, 모두 실패하면 이전 정상 버전으로 롤백합니다.
+8. 배포 후 Health Check를 최대 10회 호출하고, 모두 실패하면 이전 정상 버전으로 롤백합니다.
 
 ### Health Check와 자동 롤백
 
-EC2 User Data는 새 컨테이너를 실행한 뒤 `http://localhost:${SERVER_PORT:-8080}/health`를 최대 3회 확인합니다.
-3회 모두 실패하면 새 컨테이너를 제거하고, 배포 직전에 실행 중이던 이전 이미지로 `11th-street-app` 컨테이너를 다시 실행합니다.
-이전 이미지가 없는 최초 배포에서는 컨테이너 롤백을 수행할 수 없으므로 배포가 실패로 종료됩니다.
+EC2 User Data는 새 컨테이너를 실행한 뒤 `http://localhost:${SERVER_PORT:-8080}/health`를 최대 10회 확인합니다.
+모두 실패하면 User Data가 실패로 종료되고, 새 인스턴스는 Instance Refresh의 정상 교체 대상으로 인정되지 않습니다.
 
 GitHub Actions는 배포 전에 Launch Template의 기존 default version을 저장합니다.
 Instance Refresh 또는 외부 `HEALTHCHECK_URL` 검증이 실패하면 Launch Template default version을 이전 값으로 되돌린 뒤 Instance Refresh를 다시 시작합니다.
