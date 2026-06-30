@@ -1,7 +1,5 @@
 package com.elevenst.realtimechat.global.security;
 
-import com.elevenst.realtimechat.global.security.token.AccessTokenBlacklist;
-import com.elevenst.realtimechat.global.security.token.TokenInvalidationRegistry;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -28,13 +26,10 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
-            JwtTokenProvider jwtTokenProvider,
-            AccessTokenBlacklist accessTokenBlacklist,
-            TokenInvalidationRegistry tokenInvalidationRegistry,
+            JwtTokenValidator jwtTokenValidator,
             @Qualifier("handlerExceptionResolver") HandlerExceptionResolver handlerExceptionResolver)
             throws Exception {
-        JwtAuthenticationFilter jwtAuthenticationFilter = new JwtAuthenticationFilter(
-                jwtTokenProvider, accessTokenBlacklist, tokenInvalidationRegistry);
+        JwtAuthenticationFilter jwtAuthenticationFilter = new JwtAuthenticationFilter(jwtTokenValidator);
 
         http
                 .csrf(AbstractHttpConfigurer::disable)

@@ -8,10 +8,10 @@ import static org.mockito.Mockito.verify;
 
 import com.elevenst.realtimechat.domain.chatroom.exception.ChatRoomErrorCode;
 import com.elevenst.realtimechat.domain.chatroom.exception.ChatRoomException;
-import com.elevenst.realtimechat.global.security.JwtTokenProvider;
-import com.elevenst.realtimechat.global.security.token.AccessTokenBlacklist;
+import com.elevenst.realtimechat.global.security.JwtTokenValidator;
+import com.elevenst.realtimechat.global.security.ValidatedToken;
 import com.elevenst.realtimechat.global.security.token.TokenClaims;
-import com.elevenst.realtimechat.global.security.token.TokenInvalidationRegistry;
+import io.jsonwebtoken.JwtException;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
@@ -35,13 +35,7 @@ class StompJwtChannelInterceptorTest {
     private static final String TOKEN = "access-token";
 
     @Mock
-    private JwtTokenProvider jwtTokenProvider;
-
-    @Mock
-    private AccessTokenBlacklist accessTokenBlacklist;
-
-    @Mock
-    private TokenInvalidationRegistry tokenInvalidationRegistry;
+    private JwtTokenValidator jwtTokenValidator;
 
     @Mock
     private com.elevenst.realtimechat.domain.chatroom.service.ChatRoomService chatRoomService;
@@ -51,9 +45,7 @@ class StompJwtChannelInterceptorTest {
     @BeforeEach
     void setUp() {
         interceptor = new StompJwtChannelInterceptor(
-                jwtTokenProvider,
-                accessTokenBlacklist,
-                tokenInvalidationRegistry,
+                jwtTokenValidator,
                 chatRoomService
         );
     }
@@ -93,7 +85,7 @@ class StompJwtChannelInterceptorTest {
     @Test
     void connect_rejectsAccessTokenWithoutRoleClaim() {
         // given
-        given(jwtTokenProvider.parse(TOKEN)).willReturn(tokenClaims(null));
+        given(jwtTokenValidator.validate(TOKEN)).willThrow(new JwtException("Token role claim is missing"));
         StompHeaderAccessor accessor = accessor(StompCommand.CONNECT);
         accessor.setNativeHeader("Authorization", "Bearer " + TOKEN);
         Message<?> message = message(accessor);
@@ -115,18 +107,14 @@ class StompJwtChannelInterceptorTest {
         interceptor.preSend(message, null);
 
         // then
-        verify(jwtTokenProvider).parse(TOKEN);
-        verify(accessTokenBlacklist).contains("jti");
-        verify(tokenInvalidationRegistry).isInvalidated(1L, tokenClaims("BUYER").issuedAt());
+        verify(jwtTokenValidator).validate(TOKEN);
         assertThat(accessor.getUser()).isNotNull();
     }
 
     @Test
     void send_rejectsBlacklistedSessionAccessToken() {
         // given
-        TokenClaims claims = tokenClaims("BUYER");
-        given(jwtTokenProvider.parse(TOKEN)).willReturn(claims);
-        given(accessTokenBlacklist.contains(claims.jti())).willReturn(true);
+        given(jwtTokenValidator.validate(TOKEN)).willThrow(new JwtException("Token is blacklisted"));
         StompHeaderAccessor accessor = accessor(StompCommand.SEND);
         accessor.getSessionAttributes().put("accessToken", TOKEN);
         Message<?> message = message(accessor);
@@ -154,9 +142,8 @@ class StompJwtChannelInterceptorTest {
 
     private void givenValidAccessToken() {
         TokenClaims claims = tokenClaims("BUYER");
-        given(jwtTokenProvider.parse(TOKEN)).willReturn(claims);
-        given(accessTokenBlacklist.contains(claims.jti())).willReturn(false);
-        given(tokenInvalidationRegistry.isInvalidated(claims.memberId(), claims.issuedAt())).willReturn(false);
+        ValidatedToken validatedToken = new ValidatedToken(claims, com.elevenst.realtimechat.domain.member.entity.MemberRole.BUYER);
+        given(jwtTokenValidator.validate(TOKEN)).willReturn(validatedToken);
     }
 
     private TokenClaims tokenClaims(String role) {
@@ -181,3 +168,4 @@ class StompJwtChannelInterceptorTest {
         return MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
     }
 }
+

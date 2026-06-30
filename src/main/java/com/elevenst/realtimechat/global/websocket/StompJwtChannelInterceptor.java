@@ -3,10 +3,9 @@ package com.elevenst.realtimechat.global.websocket;
 import com.elevenst.realtimechat.domain.chatroom.exception.ChatRoomErrorCode;
 import com.elevenst.realtimechat.domain.chatroom.exception.ChatRoomException;
 import com.elevenst.realtimechat.domain.chatroom.service.ChatRoomService;
-import com.elevenst.realtimechat.global.security.JwtTokenProvider;
-import com.elevenst.realtimechat.global.security.token.AccessTokenBlacklist;
+import com.elevenst.realtimechat.global.security.JwtTokenValidator;
+import com.elevenst.realtimechat.global.security.ValidatedToken;
 import com.elevenst.realtimechat.global.security.token.TokenClaims;
-import com.elevenst.realtimechat.global.security.token.TokenInvalidationRegistry;
 import io.jsonwebtoken.JwtException;
 import java.util.List;
 import java.util.Map;
@@ -33,9 +32,7 @@ public class StompJwtChannelInterceptor implements ChannelInterceptor {
     private static final String ACCESS_TOKEN_SESSION_ATTRIBUTE = "accessToken";
     private static final String CHATROOM_TOPIC_PREFIX = "/topic/chatrooms/";
 
-    private final JwtTokenProvider jwtTokenProvider;
-    private final AccessTokenBlacklist accessTokenBlacklist;
-    private final TokenInvalidationRegistry tokenInvalidationRegistry;
+    private final JwtTokenValidator jwtTokenValidator;
     private final ChatRoomService chatRoomService;
 
     @Override
@@ -52,9 +49,9 @@ public class StompJwtChannelInterceptor implements ChannelInterceptor {
         }
 
         String token = extractBearerToken(accessor);
-        TokenClaims claims = authenticate(token);
+        ValidatedToken validatedToken = authenticate(token);
         setAccessToken(accessor, token);
-        accessor.setUser(createAuthentication(claims));
+        accessor.setUser(createAuthentication(validatedToken));
         return message;
     }
 
@@ -85,25 +82,11 @@ public class StompJwtChannelInterceptor implements ChannelInterceptor {
         return null;
     }
 
-    private TokenClaims authenticate(String token) {
+    private ValidatedToken authenticate(String token) {
         try {
-            TokenClaims claims = jwtTokenProvider.parse(token);
-            validateAccessToken(claims);
-            return claims;
+            return jwtTokenValidator.validate(token);
         } catch (JwtException | IllegalArgumentException exception) {
             throw new BadCredentialsException("Invalid access token.", exception);
-        }
-    }
-
-    private void validateAccessToken(TokenClaims claims) {
-        if (!claims.isAccess() || !StringUtils.hasText(claims.jti()) || !StringUtils.hasText(claims.role())) {
-            throw new BadCredentialsException("Invalid access token.");
-        }
-        if (accessTokenBlacklist.contains(claims.jti())) {
-            throw new BadCredentialsException("Invalid access token.");
-        }
-        if (tokenInvalidationRegistry.isInvalidated(claims.memberId(), claims.issuedAt())) {
-            throw new BadCredentialsException("Invalid access token.");
         }
     }
 
@@ -130,8 +113,8 @@ public class StompJwtChannelInterceptor implements ChannelInterceptor {
             throw new AuthenticationCredentialsNotFoundException("Authorization Bearer token is required.");
         }
 
-        TokenClaims claims = authenticate(accessToken);
-        accessor.setUser(createAuthentication(claims));
+        ValidatedToken validatedToken = authenticate(accessToken);
+        accessor.setUser(createAuthentication(validatedToken));
     }
 
     private boolean requiresSessionAuthentication(StompCommand command) {
@@ -176,11 +159,11 @@ public class StompJwtChannelInterceptor implements ChannelInterceptor {
         return Long.valueOf(accessor.getUser().getName());
     }
 
-    private UsernamePasswordAuthenticationToken createAuthentication(TokenClaims claims) {
+    private UsernamePasswordAuthenticationToken createAuthentication(ValidatedToken validatedToken) {
         return new UsernamePasswordAuthenticationToken(
-                String.valueOf(claims.memberId()),
+                String.valueOf(validatedToken.getMemberId()),
                 null,
-                List.of(new SimpleGrantedAuthority("ROLE_" + claims.role()))
+                List.of(new SimpleGrantedAuthority("ROLE_" + validatedToken.role().name()))
         );
     }
 }
