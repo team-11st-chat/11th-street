@@ -2,10 +2,10 @@ package com.elevenst.realtimechat.global.lock;
 
 import com.elevenst.realtimechat.global.support.LockManager;
 import java.util.concurrent.TimeUnit;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
@@ -17,10 +17,26 @@ import org.springframework.stereotype.Component;
 // 측정 전용 프로파일이라 그때만 NoOpLockManager 가 대신 활성화된다. prod 와 nolock 이 함께 켜지면
 // 운영 안전을 위해 RedissonLockManager 를 유지한다. 동시성 테스트는 LockManager 를 Mockito 로 대체한다.
 @Profile("!nolock | prod")
-@RequiredArgsConstructor
 public class RedissonLockManager implements LockManager {
 
     private final RedissonClient redissonClient;
+    private final long defaultWaitSeconds;
+    private final long defaultLeaseSeconds;
+
+    public RedissonLockManager(
+            RedissonClient redissonClient,
+            @Value("${app.lock.default-wait-seconds:3}") long defaultWaitSeconds,
+            @Value("${app.lock.default-lease-seconds:5}") long defaultLeaseSeconds
+    ) {
+        this.redissonClient = redissonClient;
+        this.defaultWaitSeconds = defaultWaitSeconds;
+        this.defaultLeaseSeconds = defaultLeaseSeconds;
+    }
+
+    @Override
+    public boolean tryLock(String key) {
+        return tryLock(key, defaultWaitSeconds, defaultLeaseSeconds, TimeUnit.SECONDS);
+    }
 
     @Override
     public boolean tryLock(String key, long waitTime, long leaseTime, TimeUnit unit) {

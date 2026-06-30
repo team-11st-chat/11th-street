@@ -33,27 +33,27 @@ class RedissonLockManagerTest {
 
     @Test
     void tryLockUsesDefaultPolicy() throws InterruptedException {
-        RedissonLockManager lockManager = new RedissonLockManager(redissonClient);
+        RedissonLockManager lockManager = new RedissonLockManager(redissonClient, 3L, 5L);
 
         when(redissonClient.getLock(LOCK_KEY)).thenReturn(lock);
         when(lock.tryLock(
-                LockManager.DEFAULT_WAIT_TIME,
-                LockManager.DEFAULT_LEASE_TIME,
-                LockManager.DEFAULT_TIME_UNIT
+                3L,
+                5L,
+                TimeUnit.SECONDS
         )).thenReturn(true);
 
         boolean locked = lockManager.tryLock(LOCK_KEY);
 
         assertThat(locked).isTrue();
-        verify(lock).tryLock(3L, 2L, TimeUnit.SECONDS);
+        verify(lock).tryLock(3L, 5L, TimeUnit.SECONDS);
     }
 
     @Test
     void tryLockReturnsFalseWhenRedissonFails() throws InterruptedException {
-        RedissonLockManager lockManager = new RedissonLockManager(redissonClient);
+        RedissonLockManager lockManager = new RedissonLockManager(redissonClient, 3L, 5L);
 
         when(redissonClient.getLock(LOCK_KEY)).thenReturn(lock);
-        when(lock.tryLock(3L, 2L, TimeUnit.SECONDS)).thenThrow(new IllegalStateException("redis unavailable"));
+        when(lock.tryLock(3L, 5L, TimeUnit.SECONDS)).thenThrow(new IllegalStateException("redis unavailable"));
 
         boolean locked = lockManager.tryLock(LOCK_KEY);
 
@@ -62,10 +62,10 @@ class RedissonLockManagerTest {
 
     @Test
     void tryLockRestoresInterruptedStatusAndReturnsFalse() throws InterruptedException {
-        RedissonLockManager lockManager = new RedissonLockManager(redissonClient);
+        RedissonLockManager lockManager = new RedissonLockManager(redissonClient, 3L, 5L);
 
         when(redissonClient.getLock(LOCK_KEY)).thenReturn(lock);
-        when(lock.tryLock(3L, 2L, TimeUnit.SECONDS)).thenThrow(new InterruptedException("interrupted"));
+        when(lock.tryLock(3L, 5L, TimeUnit.SECONDS)).thenThrow(new InterruptedException("interrupted"));
 
         boolean locked = lockManager.tryLock(LOCK_KEY);
 
@@ -75,7 +75,7 @@ class RedissonLockManagerTest {
 
     @Test
     void unlockReleasesLockOnlyWhenCurrentThreadOwnsIt() {
-        RedissonLockManager lockManager = new RedissonLockManager(redissonClient);
+        RedissonLockManager lockManager = new RedissonLockManager(redissonClient, 3L, 5L);
 
         when(redissonClient.getLock(LOCK_KEY)).thenReturn(lock);
         when(lock.isHeldByCurrentThread()).thenReturn(true);
@@ -87,7 +87,7 @@ class RedissonLockManagerTest {
 
     @Test
     void unlockSkipsWhenCurrentThreadDoesNotOwnLock() {
-        RedissonLockManager lockManager = new RedissonLockManager(redissonClient);
+        RedissonLockManager lockManager = new RedissonLockManager(redissonClient, 3L, 5L);
 
         when(redissonClient.getLock(LOCK_KEY)).thenReturn(lock);
         when(lock.isHeldByCurrentThread()).thenReturn(false);

@@ -12,12 +12,14 @@ import com.elevenst.realtimechat.domain.product.entity.SaleStatus;
 import com.elevenst.realtimechat.domain.product.repository.ProductRepository;
 import com.elevenst.realtimechat.global.config.CacheConfig;
 import com.github.benmanes.caffeine.cache.Policy;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
@@ -31,6 +33,12 @@ class ProductSearchServiceCacheTest {
 
     @Autowired
     private ProductSearchService productSearchService;
+
+    @Value("${app.cache.caffeine.product-search-ttl}")
+    private Duration productSearchTtl;
+
+    @Value("${app.cache.caffeine.product-search-maximum-size}")
+    private long productSearchMaximumSize;
 
     @Autowired
     private CacheManager cacheManager;
@@ -56,8 +64,8 @@ class ProductSearchServiceCacheTest {
         Policy.Eviction<Object, Object> eviction = nativeCache.policy().eviction().orElseThrow();
 
         assertThat(expiration.getExpiresAfter(TimeUnit.SECONDS))
-                .isEqualTo(CacheConfig.PRODUCT_SEARCH_TTL.toSeconds());
-        assertThat(eviction.getMaximum()).isEqualTo(CacheConfig.PRODUCT_SEARCH_MAXIMUM_SIZE);
+                .isEqualTo(productSearchTtl.toSeconds());
+        assertThat(eviction.getMaximum()).isEqualTo(productSearchMaximumSize);
     }
 
     @Test
