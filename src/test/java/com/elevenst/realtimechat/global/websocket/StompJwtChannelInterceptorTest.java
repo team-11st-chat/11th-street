@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import com.elevenst.realtimechat.domain.chatroom.exception.ChatRoomErrorCode;
 import com.elevenst.realtimechat.domain.chatroom.exception.ChatRoomException;
 import com.elevenst.realtimechat.global.security.JwtTokenValidator;
+import com.elevenst.realtimechat.global.security.ValidatedToken;
 import com.elevenst.realtimechat.global.security.token.TokenClaims;
 import io.jsonwebtoken.JwtException;
 import java.time.Instant;
@@ -141,7 +142,8 @@ class StompJwtChannelInterceptorTest {
 
     private void givenValidAccessToken() {
         TokenClaims claims = tokenClaims("BUYER");
-        given(jwtTokenValidator.validate(TOKEN)).willReturn(claims);
+        ValidatedToken validatedToken = new ValidatedToken(claims, com.elevenst.realtimechat.domain.member.entity.MemberRole.BUYER);
+        given(jwtTokenValidator.validate(TOKEN)).willReturn(validatedToken);
     }
 
     private TokenClaims tokenClaims(String role) {

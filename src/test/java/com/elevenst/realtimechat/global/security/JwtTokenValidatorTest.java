@@ -38,11 +38,11 @@ class JwtTokenValidatorTest {
     void 유효한_액세스_토큰은_검증을_통과하고_클레임을_반환한다() {
         String access = provider.createAccessToken(42L, MemberRole.BUYER).tokenValue();
 
-        TokenClaims claims = validator.validate(access);
+        ValidatedToken validatedToken = validator.validate(access);
 
-        assertThat(claims).isNotNull();
-        assertThat(claims.memberId()).isEqualTo(42L);
-        assertThat(claims.role()).isEqualTo("BUYER");
+        assertThat(validatedToken).isNotNull();
+        assertThat(validatedToken.getMemberId()).isEqualTo(42L);
+        assertThat(validatedToken.role()).isEqualTo(MemberRole.BUYER);
     }
 
     @Test
@@ -103,6 +103,22 @@ class JwtTokenValidatorTest {
         assertThatThrownBy(() -> validator.validate(tokenWithoutRole))
                 .isInstanceOf(JwtException.class)
                 .hasMessageContaining("Token role claim is missing");
+    }
+
+    @Test
+    void jti가_비어있는_토큰은_JwtException이_발생한다() {
+        String tokenWithoutJti = Jwts.builder()
+                .subject("42")
+                .issuedAt(Date.from(Instant.now()))
+                .expiration(Date.from(Instant.now().plusSeconds(3600)))
+                .claim("type", "access")
+                .claim("role", "BUYER")
+                .signWith(KEY, Jwts.SIG.HS256)
+                .compact();
+
+        assertThatThrownBy(() -> validator.validate(tokenWithoutJti))
+                .isInstanceOf(JwtException.class)
+                .hasMessageContaining("Token jti claim is missing or empty");
     }
 
     @Test

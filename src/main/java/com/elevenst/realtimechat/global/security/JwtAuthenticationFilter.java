@@ -57,15 +57,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private void authenticate(String token) {
         try {
-            TokenClaims claims = jwtTokenValidator.validate(token);
-            MemberRole role = MemberRole.valueOf(claims.role());
-            AuthenticatedMember principal = new AuthenticatedMember(claims.memberId(), role);
+            ValidatedToken validatedToken = jwtTokenValidator.validate(token);
+            MemberRole role = validatedToken.role();
+            AuthenticatedMember principal = new AuthenticatedMember(validatedToken.getMemberId(), role);
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                 principal, null, List.of(new SimpleGrantedAuthority("ROLE_" + role.name())));
             SecurityContextHolder.getContext().setAuthentication(authentication);
         } catch (JwtException | IllegalArgumentException e) {
             // 서명·만료·위조·비즈니스 정책 검증 실패: 인증을 설정하지 않고 진입점이 거부하도록 둔다.
-            log.debug("Authentication failed: {}", e.getMessage());
         }
     }
 }
