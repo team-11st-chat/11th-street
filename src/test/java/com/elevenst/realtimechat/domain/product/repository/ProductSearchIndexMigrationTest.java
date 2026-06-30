@@ -10,6 +10,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import org.flywaydb.core.Flyway;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.MySQLContainer;
@@ -18,6 +19,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 @Testcontainers
 @Tag("integration")
+@Disabled("Disabled because Flyway migration files are squashed into V1, so step-by-step migration testing is no longer applicable")
 class ProductSearchIndexMigrationTest {
 
     @Container
