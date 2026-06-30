@@ -368,6 +368,7 @@ jobs:
           ASG_NAME: ${{ vars.ASG_NAME }}
           LAUNCH_TEMPLATE_ID: ${{ vars.LAUNCH_TEMPLATE_ID }}
           PREVIOUS_VERSION: ${{ steps.launch-template.outputs.previous_version }}
+          CURRENT_REFRESH_ID: ${{ steps.refresh.outputs.refresh_id }}
         run: |
           aws ec2 modify-launch-template \
             --launch-template-id "${LAUNCH_TEMPLATE_ID}" \
@@ -376,11 +377,40 @@ jobs:
           aws autoscaling cancel-instance-refresh \
             --auto-scaling-group-name "${ASG_NAME}" || true
 
-          ROLLBACK_REFRESH_ID=$(aws autoscaling start-instance-refresh \
-            --auto-scaling-group-name "${ASG_NAME}" \
-            --preferences '{"MinHealthyPercentage":100,"InstanceWarmup":120}' \
-            --query 'InstanceRefreshId' \
-            --output text)
+          if [ -n "${CURRENT_REFRESH_ID}" ]; then
+            for i in $(seq 1 20); do
+              STATUS=$(aws autoscaling describe-instance-refreshes \
+                --auto-scaling-group-name "${ASG_NAME}" \
+                --instance-refresh-ids "${CURRENT_REFRESH_ID}" \
+                --query 'InstanceRefreshes[0].Status' \
+                --output text)
+
+              echo "Cancel wait ${i}/20 - status: ${STATUS}"
+
+              if [ "${STATUS}" = "Cancelled" ] || [ "${STATUS}" = "Failed" ] || [ "${STATUS}" = "Successful" ]; then
+                break
+              fi
+
+              sleep 15
+            done
+          fi
+
+          ROLLBACK_REFRESH_ID=""
+
+          for i in $(seq 1 5); do
+            if ROLLBACK_REFRESH_ID=$(aws autoscaling start-instance-refresh \
+              --auto-scaling-group-name "${ASG_NAME}" \
+              --preferences '{"MinHealthyPercentage":100,"InstanceWarmup":120}' \
+              --query 'InstanceRefreshId' \
+              --output text); then
+              break
+            fi
+
+            echo "Rollback instance refresh start attempt ${i}/5 failed. Retrying..."
+            sleep 15
+          done
+
+          test -n "${ROLLBACK_REFRESH_ID}"
 
           for i in $(seq 1 30); do
             STATUS=$(aws autoscaling describe-instance-refreshes \
