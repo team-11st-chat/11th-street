@@ -36,6 +36,7 @@ export function buildOptions(apiVersion) {
       checks: [`rate>=${MIN_CHECK_RATE}`],
       product_search_error_rate: [`rate<=${MAX_ERROR_RATE}`],
     },
+    summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)'],
   };
 }
 
