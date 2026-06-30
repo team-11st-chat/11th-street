@@ -1,7 +1,7 @@
-package com.elevenst.realtimechat.domain.product.entity;
+package com.elevenst.realtimechat.domain.category.entity;
 
-import com.elevenst.realtimechat.domain.product.exception.ProductErrorCode;
-import com.elevenst.realtimechat.domain.product.exception.ProductException;
+import com.elevenst.realtimechat.domain.category.exception.CategoryErrorCode;
+import com.elevenst.realtimechat.domain.category.exception.CategoryException;
 import com.elevenst.realtimechat.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -47,7 +47,7 @@ public class Category extends BaseEntity {
 
     public static Category createChild(Category parent, String name, int sortOrder) {
         if (parent == null || parent.getDepth() != 1) {
-            throw new ProductException(ProductErrorCode.INVALID_CATEGORY);
+            throw new CategoryException(CategoryErrorCode.INVALID_CATEGORY);
         }
         validateName(name);
         validateSortOrder(sortOrder);
@@ -60,13 +60,13 @@ public class Category extends BaseEntity {
 
     private static void validateName(String name) {
         if (name == null || name.trim().isBlank() || name.trim().length() > 50) {
-            throw new ProductException(ProductErrorCode.INVALID_CATEGORY);
+            throw new CategoryException(CategoryErrorCode.INVALID_CATEGORY);
         }
     }
 
     private static void validateSortOrder(int sortOrder) {
         if (sortOrder < 0) {
-            throw new ProductException(ProductErrorCode.INVALID_CATEGORY);
+            throw new CategoryException(CategoryErrorCode.INVALID_CATEGORY);
         }
     }
 }

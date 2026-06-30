@@ -1,7 +1,7 @@
 package com.elevenst.realtimechat.domain.product.service;
 
-import com.elevenst.realtimechat.domain.product.entity.Category;
-import com.elevenst.realtimechat.domain.product.repository.CategoryRepository;
+import com.elevenst.realtimechat.domain.category.entity.Category;
+import com.elevenst.realtimechat.domain.category.repository.CategoryRepository;
 import com.elevenst.realtimechat.domain.product.repository.ProductRepository;
 import java.math.BigDecimal;
 import java.sql.PreparedStatement;

@@ -2,7 +2,8 @@ package com.elevenst.realtimechat.domain.product.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.elevenst.realtimechat.domain.product.entity.Category;
+import com.elevenst.realtimechat.domain.category.entity.Category;
+import com.elevenst.realtimechat.domain.category.repository.CategoryRepository;
 import com.elevenst.realtimechat.domain.product.entity.Product;
 import com.elevenst.realtimechat.domain.product.entity.SaleStatus;
 import java.math.BigDecimal;

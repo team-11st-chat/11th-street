@@ -4,10 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
 import com.elevenst.realtimechat.domain.product.dto.ProductUpdateRequest;
-import com.elevenst.realtimechat.domain.product.entity.Category;
+import com.elevenst.realtimechat.domain.category.entity.Category;
+import com.elevenst.realtimechat.domain.category.service.CategoryQueryService;
 import com.elevenst.realtimechat.domain.product.entity.Product;
 import com.elevenst.realtimechat.domain.product.entity.SaleStatus;
-import com.elevenst.realtimechat.domain.product.repository.CategoryRepository;
 import com.elevenst.realtimechat.domain.product.repository.ProductRepository;
 import com.elevenst.realtimechat.domain.search.service.SearchKeywordRecorder;
 import com.elevenst.realtimechat.global.config.CacheConfig;
@@ -36,7 +36,7 @@ class ProductServiceCacheEvictTest {
     private ProductRepository productRepository;
 
     @MockitoBean
-    private CategoryRepository categoryRepository;
+    private CategoryQueryService categoryQueryService;
 
     @MockitoBean
     private SearchKeywordRecorder searchKeywordRecorder;

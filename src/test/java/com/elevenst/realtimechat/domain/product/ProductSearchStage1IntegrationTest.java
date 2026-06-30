@@ -12,8 +12,8 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 
 import com.elevenst.realtimechat.domain.member.entity.MemberRole;
-import com.elevenst.realtimechat.domain.product.entity.Category;
-import com.elevenst.realtimechat.domain.product.repository.CategoryRepository;
+import com.elevenst.realtimechat.domain.category.entity.Category;
+import com.elevenst.realtimechat.domain.category.repository.CategoryRepository;
 import com.elevenst.realtimechat.domain.product.repository.ProductRepository;
 import com.elevenst.realtimechat.domain.search.repository.SearchHistoryRepository;
 import com.elevenst.realtimechat.domain.search.service.SearchKeywordRecordCommand;

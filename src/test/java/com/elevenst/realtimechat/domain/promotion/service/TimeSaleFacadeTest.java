@@ -7,7 +7,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
-import com.elevenst.realtimechat.domain.product.entity.Category;
+import com.elevenst.realtimechat.domain.category.entity.Category;
 import com.elevenst.realtimechat.domain.product.entity.Product;
 import com.elevenst.realtimechat.domain.product.service.ProductService;
 import com.elevenst.realtimechat.domain.promotion.dto.TimeSaleCreateRequest;

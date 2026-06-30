@@ -6,7 +6,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-import com.elevenst.realtimechat.domain.product.entity.Category;
+import com.elevenst.realtimechat.domain.category.entity.Category;
 import com.elevenst.realtimechat.domain.product.entity.Product;
 import com.elevenst.realtimechat.domain.promotion.entity.TimeSale;
 import com.elevenst.realtimechat.domain.promotion.entity.TimeSaleStock;
