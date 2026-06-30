@@ -7,6 +7,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.elevenst.realtimechat.domain.search.dto.PopularKeywordResponse;
 import com.elevenst.realtimechat.domain.search.repository.SearchHistoryRepository;
 import com.elevenst.realtimechat.domain.search.repository.SearchHistoryRepository.PopularKeywordRow;
 import com.elevenst.realtimechat.global.config.CacheConfig;
@@ -75,6 +76,22 @@ class SearchKeywordServiceCacheTest {
         Cache cache = cacheManager.getCache(CacheConfig.POPULAR_KEYWORDS_CACHE);
         assertThat(cache).isNotNull();
         assertThat(cache.get(CacheConfig.POPULAR_KEYWORDS_KEY)).isNotNull();
+    }
+
+    @Test
+    void record_evictsPopularKeywordsCache() {
+        PopularKeywordRow row = row("keyboard", 1L);
+        when(searchHistoryRepository.findPopularKeywords(any(), any(Pageable.class)))
+                .thenReturn(List.of(), List.of(row));
+
+        assertThat(searchKeywordService.getPopularKeywords()).isEmpty();
+
+        searchKeywordService.record(SearchKeywordRecordCommand.guest("keyboard", "guest-a", 1L));
+
+        assertThat(searchKeywordService.getPopularKeywords())
+                .extracting(PopularKeywordResponse::keyword)
+                .containsExactly("keyboard");
+        verify(searchHistoryRepository, times(2)).findPopularKeywords(any(), any(Pageable.class));
     }
 
     private PopularKeywordRow row(String keyword, long searchCount) {
