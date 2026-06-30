@@ -1,13 +1,79 @@
-# k6 Load Tests for Time Sale and Coupon Issue
+# k6 Load Tests
 
-Issue scope: #31 and #32 under parent issue #6.
+Issue scope:
 
-This directory contains k6 scenarios for the MVP 3 Track B load-verification slice:
+- #31 and #32 under parent issue #6 for time-sale and coupon concurrency load verification.
+- #95 for product search v1/v2 load comparison.
 
 - `timesale-order-load.js`: `POST /api/v1/timesales/{timeSaleId}/orders`
 - `coupon-issue-load.js`: `POST /api/v1/coupons/{couponPolicyId}/issue`
+- `product-search-v1-load.js`: `GET /api/v1/products`
+- `product-search-v2-load.js`: `GET /api/v2/products`
 
 The scripts assume that seed data, members, login, active time sale, and active coupon policy are prepared before the run. They do not create application data because setup ownership belongs to other issues and local environments may use different seed strategies.
+
+Product search scripts also assume that comparable product data is already loaded. For issue #95, load at least 50,000 products and run v1 and v2 with the same keyword, category, page, size, stage profile, and load generator host.
+
+## Product Search v1/v2
+
+The product search scripts use the same common scenario and differ only by endpoint version:
+
+- v1 measures `GET /api/v1/products`, which uses the non-cache product search path.
+- v2 measures `GET /api/v2/products`, which uses the configured product search cache path. Set `PRODUCT_SEARCH_CACHE_MODE=REMOTE` on the application process when measuring Redis Remote Cache.
+
+Default ramp profile:
+
+```text
+30s:20,1m:50,1m:100,30s:0
+```
+
+Override it with:
+
+```powershell
+$env:STAGES = "30s:50,1m:100,1m:200,30s:0"
+```
+
+Common inputs:
+
+```powershell
+$env:BASE_URL = "http://localhost:8080"
+$env:SEARCH_KEYWORD = "cache-target"
+$env:CATEGORY_ID = ""
+$env:PAGE = "0"
+$env:SIZE = "20"
+$env:STAGES = "30s:20,1m:50,1m:100,30s:0"
+```
+
+Run v1:
+
+```powershell
+$env:SUMMARY_DIR = "docs/performance/k6/results/product-search-v1"
+k6 run docs/performance/k6/product-search-v1-load.js
+```
+
+Run v2 with Redis Remote Cache enabled.
+> [!IMPORTANT]
+> `PRODUCT_SEARCH_CACHE_MODE=REMOTE` 환경 변수는 k6 실행 셸이 아니라, **Spring Boot 애플리케이션 프로세스가 시작될 때** 읽는 설정입니다.
+> 애플리케이션 기동 셸에서 해당 환경 변수를 주입하고 실행하여 Remote Cache 모드로 동작하는지 반드시 확인해 주세요.
+
+k6 실행 셸 환경 설정:
+```powershell
+$env:WARMUP_REQUESTS = "20"
+$env:SUMMARY_DIR = "docs/performance/k6/results/product-search-v2"
+k6 run docs/performance/k6/product-search-v2-load.js
+```
+
+Collected product search metrics:
+
+- `product_search_successes`
+- `product_search_failures`
+- `product_search_error_rate`
+- `product_search_response_time`
+- k6 built-ins including `http_reqs`, `http_req_duration`, `http_req_failed`, `dropped_iterations`, and `vus_max`
+
+The generated Markdown summary reports average response time, p95, p99, throughput, failure rate, and dropped iterations. Use rising failure rate and sharply increasing p95/p99 as saturation signals. (Note: dropped iterations is always 0 because closed-model executors like ramping-vus do not drop iterations.)
+
+The comparison report for issue #95 is maintained in `.agents/wiki-work/ProductSearchK6Comparison.md`.
 
 ## Token Input
 
