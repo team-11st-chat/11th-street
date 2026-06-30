@@ -83,7 +83,7 @@ export function runSearch(apiVersion) {
 
   check(response, {
     'search response is HTTP 200': (res) => res.status === 200,
-    'search response has page data': (res) => isSuccessfulSearchResponse(res),
+    'search response has page data': () => succeeded,
   });
 }
 
