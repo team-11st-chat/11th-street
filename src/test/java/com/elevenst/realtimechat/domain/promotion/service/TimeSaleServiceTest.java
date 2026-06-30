@@ -1,6 +1,7 @@
 package com.elevenst.realtimechat.domain.promotion.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -11,6 +12,8 @@ import com.elevenst.realtimechat.domain.product.entity.Product;
 import com.elevenst.realtimechat.domain.promotion.dto.TimeSaleResponse;
 import com.elevenst.realtimechat.domain.promotion.entity.TimeSale;
 import com.elevenst.realtimechat.domain.promotion.entity.TimeSaleStock;
+import com.elevenst.realtimechat.domain.promotion.exception.TimeSaleErrorCode;
+import com.elevenst.realtimechat.domain.promotion.exception.TimeSaleException;
 import com.elevenst.realtimechat.domain.promotion.repository.TimeSaleRepository;
 import com.elevenst.realtimechat.domain.promotion.repository.TimeSaleStockRepository;
 import java.math.BigDecimal;
@@ -65,6 +68,24 @@ class TimeSaleServiceTest {
                 );
         verify(timeSaleStockRepository, times(1)).findByTimeSaleIdIn(List.of(10L, 11L));
         verify(timeSaleStockRepository, never()).findByTimeSaleId(org.mockito.ArgumentMatchers.anyLong());
+    }
+
+    @Test
+    void 타임세일_목록_조회_시_재고가_없는_항목이_있으면_예외가_발생한다() {
+        LocalDateTime now = LocalDateTime.now();
+        TimeSale timeSale1 = createTimeSale(10L, createProduct(100L), now.minusMinutes(1), now.plusMinutes(1));
+        TimeSale timeSale2 = createTimeSale(11L, createProduct(101L), now.minusMinutes(1), now.plusMinutes(1));
+        Pageable pageable = PageRequest.of(0, 20);
+        Page<TimeSale> page = new PageImpl<>(List.of(timeSale1, timeSale2), pageable, 2);
+        given(timeSaleRepository.findAll(pageable)).willReturn(page);
+        // 11L 의 재고가 누락된 상황: 일괄 조회 결과에 10L 만 포함된다.
+        given(timeSaleStockRepository.findByTimeSaleIdIn(List.of(10L, 11L)))
+                .willReturn(List.of(new TimeSaleStock(timeSale1, 5)));
+
+        assertThatThrownBy(() -> timeSaleService.getTimeSales(pageable))
+                .isInstanceOf(TimeSaleException.class)
+                .extracting(exception -> ((TimeSaleException) exception).getErrorCode())
+                .isEqualTo(TimeSaleErrorCode.TIME_SALE_NOT_FOUND);
     }
 
     private Product createProduct(Long productId) {
