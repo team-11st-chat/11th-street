@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,10 @@ public class SearchKeywordService implements SearchKeywordRecorder {
     private final SearchHistoryRepository searchHistoryRepository;
 
     @Override
+    @CacheEvict(
+            cacheNames = CacheConfig.POPULAR_KEYWORDS_CACHE,
+            key = "T(com.elevenst.realtimechat.global.config.CacheConfig).POPULAR_KEYWORDS_KEY"
+    )
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void record(SearchKeywordRecordCommand command) {
         String normalizedKeyword = normalizeKeyword(command.keyword());
