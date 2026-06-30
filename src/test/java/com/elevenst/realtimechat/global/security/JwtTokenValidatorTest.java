@@ -1,14 +1,15 @@
 package com.elevenst.realtimechat.global.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.elevenst.realtimechat.domain.member.entity.MemberRole;
 import com.elevenst.realtimechat.global.security.token.AccessTokenBlacklist;
+import com.elevenst.realtimechat.global.security.token.TokenClaims;
 import com.elevenst.realtimechat.global.security.token.TokenInvalidationRegistry;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
-import jakarta.servlet.FilterChain;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
@@ -16,15 +17,9 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import javax.crypto.SecretKey;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpHeaders;
-import org.springframework.mock.web.MockHttpServletRequest;
-import org.springframework.mock.web.MockHttpServletResponse;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 
-class JwtAuthenticationFilterTest {
+class JwtTokenValidatorTest {
 
     private static final String SECRET = "test-secret-key-that-is-long-enough-for-hs256-0123456789";
     private static final SecretKey KEY =
@@ -39,23 +34,19 @@ class JwtAuthenticationFilterTest {
     private final JwtTokenValidator validator =
             new JwtTokenValidator(provider, blacklist, registry);
 
-    private final JwtAuthenticationFilter filter =
-            new JwtAuthenticationFilter(validator);
+    @Test
+    void 유효한_액세스_토큰은_검증을_통과하고_클레임을_반환한다() {
+        String access = provider.createAccessToken(42L, MemberRole.BUYER).tokenValue();
 
-    @AfterEach
-    void clearContext() {
-        SecurityContextHolder.clearContext();
+        TokenClaims claims = validator.validate(access);
+
+        assertThat(claims).isNotNull();
+        assertThat(claims.memberId()).isEqualTo(42L);
+        assertThat(claims.role()).isEqualTo("BUYER");
     }
 
     @Test
-    void 토큰이_없으면_인증을_설정하지_않는다() throws Exception {
-        doFilter(new MockHttpServletRequest());
-
-        assertThat(currentAuthentication()).isNull();
-    }
-
-    @Test
-    void 위조_토큰은_인증을_설정하지_않는다() throws Exception {
+    void 위조된_토큰은_JwtException이_발생한다() {
         SecretKey otherKey = Keys.hmacShaKeyFor(
                 "another-secret-key-that-is-long-enough-for-hs256-9876543210".getBytes(StandardCharsets.UTF_8));
         String forged = Jwts.builder()
@@ -68,13 +59,12 @@ class JwtAuthenticationFilterTest {
                 .signWith(otherKey, Jwts.SIG.HS256)
                 .compact();
 
-        doFilter(bearerRequest(forged));
-
-        assertThat(currentAuthentication()).isNull();
+        assertThatThrownBy(() -> validator.validate(forged))
+                .isInstanceOf(JwtException.class);
     }
 
     @Test
-    void 만료된_토큰은_인증을_설정하지_않는다() throws Exception {
+    void 만료된_토큰은_JwtException이_발생한다() {
         Instant past = Instant.now().minusSeconds(7200);
         String expired = Jwts.builder()
                 .id(UUID.randomUUID().toString())
@@ -86,55 +76,57 @@ class JwtAuthenticationFilterTest {
                 .signWith(KEY, Jwts.SIG.HS256)
                 .compact();
 
-        doFilter(bearerRequest(expired));
-
-        assertThat(currentAuthentication()).isNull();
+        assertThatThrownBy(() -> validator.validate(expired))
+                .isInstanceOf(JwtException.class);
     }
 
     @Test
-    void 리프레시_토큰은_인증을_설정하지_않는다() throws Exception {
+    void 리프레시_토큰은_Access_토큰이_아니므로_JwtException이_발생한다() {
         String refresh = provider.createRefreshToken(42L).tokenValue();
 
-        doFilter(bearerRequest(refresh));
-
-        assertThat(currentAuthentication()).isNull();
+        assertThatThrownBy(() -> validator.validate(refresh))
+                .isInstanceOf(JwtException.class)
+                .hasMessageContaining("Token type is not access token");
     }
 
     @Test
-    void 유효한_액세스_토큰은_인증을_설정한다() throws Exception {
-        String access = provider.createAccessToken(42L, MemberRole.BUYER).tokenValue();
+    void Role_클레임이_없는_토큰은_JwtException이_발생한다() {
+        String tokenWithoutRole = Jwts.builder()
+                .id(UUID.randomUUID().toString())
+                .subject("42")
+                .issuedAt(Date.from(Instant.now()))
+                .expiration(Date.from(Instant.now().plusSeconds(3600)))
+                .claim("type", "access")
+                .signWith(KEY, Jwts.SIG.HS256)
+                .compact();
 
-        doFilter(bearerRequest(access));
-
-        Authentication authentication = currentAuthentication();
-        assertThat(authentication).isNotNull();
-        assertThat(authentication.getPrincipal())
-                .isEqualTo(new AuthenticatedMember(42L, MemberRole.BUYER));
-        assertThat(authentication.getAuthorities()).extracting("authority").containsExactly("ROLE_BUYER");
+        assertThatThrownBy(() -> validator.validate(tokenWithoutRole))
+                .isInstanceOf(JwtException.class)
+                .hasMessageContaining("Token role claim is missing");
     }
 
     @Test
-    void 블랙리스트에_등록된_토큰은_인증을_설정하지_않는다() throws Exception {
+    void 블랙리스트에_등록된_토큰은_JwtException이_발생한다() {
         var generated = provider.createAccessToken(42L, MemberRole.BUYER);
         blacklist.add(generated.jti());
 
-        doFilter(bearerRequest(generated.tokenValue()));
-
-        assertThat(currentAuthentication()).isNull();
+        assertThatThrownBy(() -> validator.validate(generated.tokenValue()))
+                .isInstanceOf(JwtException.class)
+                .hasMessageContaining("Token is blacklisted");
     }
 
     @Test
-    void 사용자_무효화_기준에_걸린_토큰은_인증을_설정하지_않는다() throws Exception {
+    void 사용자_무효화_기준에_걸린_토큰은_JwtException이_발생한다() {
         registry.invalidateAll(42L);
         String access = provider.createAccessToken(42L, MemberRole.BUYER).tokenValue();
 
-        doFilter(bearerRequest(access));
-
-        assertThat(currentAuthentication()).isNull();
+        assertThatThrownBy(() -> validator.validate(access))
+                .isInstanceOf(JwtException.class)
+                .hasMessageContaining("Token is invalidated by user session reset");
     }
 
     @Test
-    void 알_수_없는_role_클레임은_500이_아니라_인증_미설정으로_처리된다() throws Exception {
+    void 알_수_없는_Role_클레임은_IllegalArgumentException이_발생한다() {
         String unknownRole = Jwts.builder()
                 .id(UUID.randomUUID().toString())
                 .subject("42")
@@ -145,28 +137,11 @@ class JwtAuthenticationFilterTest {
                 .signWith(KEY, Jwts.SIG.HS256)
                 .compact();
 
-        MockHttpServletRequest request = bearerRequest(unknownRole);
-        assertThatCode(() -> doFilter(request)).doesNotThrowAnyException();
-        assertThat(currentAuthentication()).isNull();
-    }
-
-    private void doFilter(MockHttpServletRequest request) throws Exception {
-        FilterChain chain = (req, res) -> {};
-        filter.doFilter(request, new MockHttpServletResponse(), chain);
-    }
-
-    private MockHttpServletRequest bearerRequest(String token) {
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + token);
-        return request;
-    }
-
-    private Authentication currentAuthentication() {
-        return SecurityContextHolder.getContext().getAuthentication();
+        assertThatThrownBy(() -> validator.validate(unknownRole))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     private static final class FakeAccessTokenBlacklist implements AccessTokenBlacklist {
-
         private final Set<String> blacklisted = new HashSet<>();
 
         void add(String jti) {
@@ -185,7 +160,6 @@ class JwtAuthenticationFilterTest {
     }
 
     private static final class FakeTokenInvalidationRegistry implements TokenInvalidationRegistry {
-
         private final Set<Long> invalidatedMembers = new HashSet<>();
 
         void invalidateAll(Long memberId) {
