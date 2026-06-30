@@ -1,5 +1,6 @@
 package com.elevenst.realtimechat.domain.product.entity;
 
+import com.elevenst.realtimechat.domain.category.entity.Category;
 import com.elevenst.realtimechat.domain.product.exception.ProductErrorCode;
 import com.elevenst.realtimechat.domain.product.exception.ProductException;
 import com.elevenst.realtimechat.global.entity.BaseEntity;

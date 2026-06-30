@@ -2,6 +2,7 @@ package com.elevenst.realtimechat.domain.product.entity;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.elevenst.realtimechat.domain.category.entity.Category;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
 

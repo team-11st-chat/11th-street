@@ -1,6 +1,6 @@
-package com.elevenst.realtimechat.domain.product.repository;
+package com.elevenst.realtimechat.domain.category.repository;
 
-import com.elevenst.realtimechat.domain.product.entity.Category;
+import com.elevenst.realtimechat.domain.category.entity.Category;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface CategoryRepository extends JpaRepository<Category, Long> {

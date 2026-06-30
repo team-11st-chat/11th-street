@@ -14,11 +14,13 @@ import com.elevenst.realtimechat.domain.product.dto.ProductPageResponse;
 import com.elevenst.realtimechat.domain.product.dto.ProductResponse;
 import com.elevenst.realtimechat.domain.product.dto.ProductSummaryResponse;
 import com.elevenst.realtimechat.domain.product.dto.ProductUpdateRequest;
-import com.elevenst.realtimechat.domain.product.entity.Category;
+import com.elevenst.realtimechat.domain.category.entity.Category;
+import com.elevenst.realtimechat.domain.category.exception.CategoryErrorCode;
+import com.elevenst.realtimechat.domain.category.exception.CategoryException;
+import com.elevenst.realtimechat.domain.category.service.CategoryQueryService;
 import com.elevenst.realtimechat.domain.product.entity.Product;
 import com.elevenst.realtimechat.domain.product.entity.SaleStatus;
 import com.elevenst.realtimechat.domain.product.exception.ProductException;
-import com.elevenst.realtimechat.domain.product.repository.CategoryRepository;
 import com.elevenst.realtimechat.domain.product.repository.ProductRepository;
 import com.elevenst.realtimechat.domain.search.service.SearchKeywordRecordCommand;
 import com.elevenst.realtimechat.domain.search.service.SearchKeywordRecorder;
@@ -41,7 +43,7 @@ class ProductServiceTest {
     private ProductRepository productRepository;
 
     @Mock
-    private CategoryRepository categoryRepository;
+    private CategoryQueryService categoryQueryService;
 
     @Mock
     private SearchKeywordRecorder searchKeywordRecorder;
@@ -58,7 +60,7 @@ class ProductServiceTest {
     void setUp() {
         productService = new ProductService(
                 productRepository,
-                categoryRepository,
+                categoryQueryService,
                 searchKeywordRecorder,
                 productSearchService,
                 new ProductSearchCacheProperties(ProductSearchCacheProperties.Mode.LOCAL),
@@ -71,7 +73,7 @@ class ProductServiceTest {
         Category category = Category.createChild(Category.createRoot("디지털·가전", 1), "이어폰", 1);
         Product savedProduct = Product.create(1L, category, "무선 이어폰", new BigDecimal("89000"), 500);
 
-        when(categoryRepository.findById(11L)).thenReturn(Optional.of(category));
+        when(categoryQueryService.getCategoryOrThrow(11L)).thenReturn(category);
         when(productRepository.save(any(Product.class))).thenReturn(savedProduct);
 
         ProductResponse response = productService.createProduct(
@@ -89,13 +91,24 @@ class ProductServiceTest {
     void createProduct_rejectsRootCategory() {
         Category rootCategory = Category.createRoot("디지털·가전", 1);
 
-        when(categoryRepository.findById(1L)).thenReturn(Optional.of(rootCategory));
+        when(categoryQueryService.getCategoryOrThrow(1L)).thenReturn(rootCategory);
 
         assertThatThrownBy(() -> productService.createProduct(
                 1L,
                 new ProductCreateRequest("무선 이어폰", 1L, new BigDecimal("89000"), 500)
         )).isInstanceOf(ProductException.class)
                 .hasMessage("상품은 중분류 카테고리에만 등록할 수 있습니다.");
+    }
+
+    @Test
+    void createProduct_throwsCategoryException_whenCategoryIsNotFound() {
+        when(categoryQueryService.getCategoryOrThrow(404L))
+                .thenThrow(new CategoryException(CategoryErrorCode.CATEGORY_NOT_FOUND));
+
+        assertThatThrownBy(() -> productService.createProduct(
+                1L,
+                new ProductCreateRequest("Wireless Earbuds", 404L, new BigDecimal("89000"), 500)
+        )).isInstanceOf(CategoryException.class);
     }
 
     @Test
@@ -198,7 +211,7 @@ class ProductServiceTest {
         );
         productService = new ProductService(
                 productRepository,
-                categoryRepository,
+                categoryQueryService,
                 searchKeywordRecorder,
                 productSearchService,
                 new ProductSearchCacheProperties(ProductSearchCacheProperties.Mode.REMOTE),

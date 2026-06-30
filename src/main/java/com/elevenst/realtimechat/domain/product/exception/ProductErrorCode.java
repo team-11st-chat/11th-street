@@ -9,7 +9,6 @@ import org.springframework.http.HttpStatus;
 @RequiredArgsConstructor
 public enum ProductErrorCode implements ErrorCode {
     PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "상품을 찾을 수 없습니다."),
-    CATEGORY_NOT_FOUND(HttpStatus.NOT_FOUND, "카테고리를 찾을 수 없습니다."),
     INVALID_CATEGORY(HttpStatus.BAD_REQUEST, "상품은 중분류 카테고리에만 등록할 수 있습니다."),
     INVALID_SELLER(HttpStatus.BAD_REQUEST, "판매자 식별 정보가 올바르지 않습니다."),
     INVALID_PRODUCT_NAME(HttpStatus.BAD_REQUEST, "상품명이 올바르지 않습니다."),

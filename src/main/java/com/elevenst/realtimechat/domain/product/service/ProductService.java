@@ -4,11 +4,11 @@ import com.elevenst.realtimechat.domain.product.dto.ProductCreateRequest;
 import com.elevenst.realtimechat.domain.product.dto.ProductPageResponse;
 import com.elevenst.realtimechat.domain.product.dto.ProductResponse;
 import com.elevenst.realtimechat.domain.product.dto.ProductUpdateRequest;
-import com.elevenst.realtimechat.domain.product.entity.Category;
+import com.elevenst.realtimechat.domain.category.entity.Category;
+import com.elevenst.realtimechat.domain.category.service.CategoryQueryService;
 import com.elevenst.realtimechat.domain.product.entity.Product;
 import com.elevenst.realtimechat.domain.product.exception.ProductErrorCode;
 import com.elevenst.realtimechat.domain.product.exception.ProductException;
-import com.elevenst.realtimechat.domain.product.repository.CategoryRepository;
 import com.elevenst.realtimechat.domain.product.repository.ProductRepository;
 import com.elevenst.realtimechat.domain.search.service.SearchKeywordRecordCommand;
 import com.elevenst.realtimechat.domain.search.service.SearchKeywordRecorder;
@@ -26,7 +26,7 @@ public class ProductService {
     private static final int MAX_PAGE_SIZE = 100;
 
     private final ProductRepository productRepository;
-    private final CategoryRepository categoryRepository;
+    private final CategoryQueryService categoryQueryService;
     private final SearchKeywordRecorder searchKeywordRecorder;
     private final ProductSearchService productSearchService;
     private final ProductSearchCacheProperties productSearchCacheProperties;
@@ -102,8 +102,7 @@ public class ProductService {
     }
 
     private Category getCategory(Long categoryId) {
-        return categoryRepository.findById(categoryId)
-                .orElseThrow(() -> new ProductException(ProductErrorCode.CATEGORY_NOT_FOUND));
+        return categoryQueryService.getCategoryOrThrow(categoryId);
     }
 
     private void validatePageRequest(int page, int size) {
