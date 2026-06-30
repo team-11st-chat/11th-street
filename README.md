@@ -131,7 +131,7 @@ $env:PERFORMANCE_TEST = "true"
 4. push 또는 수동 실행에서는 이미지를 Amazon ECR에 commit SHA 태그와 `latest` 태그로 push합니다.
 5. `main` 브랜치 배포 또는 수동 실행 시 Launch Template 새 버전을 생성합니다.
 6. Auto Scaling Group Instance Refresh로 신규 EC2 인스턴스를 교체합니다.
-7. EC2 User Data가 Parameter Store 값을 `.env.runtime` 파일로 만든 뒤 컨테이너를 실행합니다.
+7. EC2 User Data가 Redis를 인스턴스 서비스로 실행하고, Parameter Store 값을 `.env.runtime` 파일로 만든 뒤 애플리케이션 컨테이너를 실행합니다.
 
 GitHub Actions에는 다음 값을 등록해야 합니다.
 
@@ -148,6 +148,8 @@ GitHub Actions에는 다음 값을 등록해야 합니다.
 EC2 Instance Role에는 ECR 이미지 pull 권한과 Parameter Store 읽기 권한이 필요합니다.
 런타임 환경변수는 Parameter Store의 `/11th-street/prod` 경로 아래에 저장합니다.
 `DB_PASSWORD`, `JWT_SECRET`처럼 민감한 값은 `SecureString`으로 저장합니다.
+배포 환경의 MySQL은 RDS를 사용하고, Redis는 EC2 인스턴스에 설치된 로컬 서비스를 사용합니다.
+따라서 `DB_URL`은 RDS endpoint를, `REDIS_HOST`는 `localhost`를 사용합니다.
 
 ```text
 /11th-street/prod/SPRING_PROFILES_ACTIVE

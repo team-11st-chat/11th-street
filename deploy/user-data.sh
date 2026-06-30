@@ -15,10 +15,20 @@ ECR_URI="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}
 
 dnf update -y
 dnf install -y docker awscli python3
+dnf install -y redis6 || dnf install -y redis
 systemctl enable --now docker
 
 mkdir -p "${APP_DIR}"
 chmod 750 "${APP_DIR}"
+
+start_redis() {
+  if systemctl list-unit-files redis6.service >/dev/null 2>&1; then
+    systemctl enable --now redis6
+    return
+  fi
+
+  systemctl enable --now redis
+}
 
 write_env_file() {
   local next_token=""
@@ -66,6 +76,7 @@ PY
   done
 }
 
+start_redis
 write_env_file
 chmod 600 "${ENV_FILE}"
 
@@ -81,5 +92,5 @@ docker run -d \
   --name "${CONTAINER_NAME}" \
   --restart unless-stopped \
   --env-file "${ENV_FILE}" \
-  -p 8080:8080 \
+  --network host \
   "${ECR_URI}:${IMAGE_TAG}"

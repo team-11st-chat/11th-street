@@ -73,8 +73,19 @@ jobs:
           path: build/libs/*.jar
           if-no-files-found: error
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build Docker image
-        run: docker build -t 11th-street-app:ci .
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: false
+          tags: 11th-street-app:ci
 
   cd-dry-run:
     name: CD Dry Run
@@ -225,14 +236,21 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build and push Docker image
-        env:
-          IMAGE_URI: ${{ steps.image.outputs.image_uri }}
-          IMAGE_TAG: ${{ steps.image.outputs.image_tag }}
-        run: |
-          docker build -t "${IMAGE_URI}:${IMAGE_TAG}" -t "${IMAGE_URI}:latest" .
-          docker push "${IMAGE_URI}:${IMAGE_TAG}"
-          docker push "${IMAGE_URI}:latest"
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ steps.image.outputs.image_uri }}:${{ steps.image.outputs.image_tag }}
+            ${{ steps.image.outputs.image_uri }}:latest
 
   deploy:
     name: Deploy to EC2 Auto Scaling Group
