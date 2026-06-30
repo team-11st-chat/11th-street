@@ -5,7 +5,7 @@ import com.elevenst.realtimechat.domain.auth.dto.LoginRequest;
 import com.elevenst.realtimechat.domain.auth.exception.AuthErrorCode;
 import com.elevenst.realtimechat.domain.member.entity.Member;
 import com.elevenst.realtimechat.domain.member.entity.MemberRole;
-import com.elevenst.realtimechat.domain.member.repository.MemberRepository;
+import com.elevenst.realtimechat.domain.member.service.MemberQueryService;
 import com.elevenst.realtimechat.global.exception.BusinessException;
 import com.elevenst.realtimechat.global.security.JwtTokenProvider;
 import com.elevenst.realtimechat.global.security.token.AccessTokenBlacklist;
@@ -24,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class AuthService {
 
-    private final MemberRepository memberRepository;
+    private final MemberQueryService memberQueryService;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final RefreshTokenStore refreshTokenStore;
@@ -32,7 +32,7 @@ public class AuthService {
 
     @Transactional(readOnly = true)
     public AuthTokens login(LoginRequest request) {
-        Member member = memberRepository.findByEmail(request.email())
+        Member member = memberQueryService.findByEmail(request.email())
                 .orElseThrow(() -> new BusinessException(AuthErrorCode.INVALID_CREDENTIALS));
         if (!member.isActive() || !passwordEncoder.matches(request.password(), member.getPasswordHash())) {
             throw new BusinessException(AuthErrorCode.INVALID_CREDENTIALS);
@@ -62,7 +62,7 @@ public class AuthService {
             throw new BusinessException(AuthErrorCode.REFRESH_TOKEN_REUSED);
         }
 
-        Member member = memberRepository.findById(memberId)
+        Member member = memberQueryService.findById(memberId)
                 .orElseThrow(() -> new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN));
         if (!member.isActive()) {
             throw new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN);

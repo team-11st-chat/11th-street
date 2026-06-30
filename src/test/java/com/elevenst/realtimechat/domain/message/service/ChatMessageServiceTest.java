@@ -3,14 +3,13 @@ package com.elevenst.realtimechat.domain.message.service;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.elevenst.realtimechat.domain.chatroom.entity.ChatRoom;
 import com.elevenst.realtimechat.domain.chatroom.exception.ChatRoomException;
-import com.elevenst.realtimechat.domain.chatroom.repository.ChatRoomParticipantRepository;
-import com.elevenst.realtimechat.domain.chatroom.repository.ChatRoomRepository;
 import com.elevenst.realtimechat.domain.message.repository.ChatMessageRepository;
 import java.time.Clock;
 import java.time.Instant;
@@ -33,10 +32,7 @@ class ChatMessageServiceTest {
     private ChatMessageRepository chatMessageRepository;
 
     @Mock
-    private ChatRoomRepository chatRoomRepository;
-
-    @Mock
-    private ChatRoomParticipantRepository participantRepository;
+    private ChatMessageChatRoomReader chatRoomReader;
 
     @Mock
     private ChatMessagePublisher chatMessagePublisher;
@@ -54,8 +50,7 @@ class ChatMessageServiceTest {
         );
         chatMessageService = new ChatMessageService(
                 chatMessageRepository,
-                chatRoomRepository,
-                participantRepository,
+                chatRoomReader,
                 chatMessagePublisher,
                 clock,
                 chatMessagePersistenceService
@@ -71,9 +66,7 @@ class ChatMessageServiceTest {
         LocalDateTime retentionStartedAt = LocalDateTime.of(2026, 5, 27, 12, 0);
         ChatRoom room = createRoom(chatRoomId, memberId, 3L);
 
-        when(chatRoomRepository.findById(chatRoomId)).thenReturn(Optional.of(room));
-        when(participantRepository.existsByChatRoomIdAndMemberIdAndLeftAtIsNull(room.getId(), memberId))
-                .thenReturn(true);
+        when(chatRoomReader.getRoom(chatRoomId)).thenReturn(room);
         when(chatMessageRepository.findPreviousMessages(
                 eq(room.getId()),
                 eq(cursor),
@@ -97,9 +90,9 @@ class ChatMessageServiceTest {
         Long chatRoomId = 1L;
         ChatRoom room = createRoom(chatRoomId, 3L, 4L);
 
-        when(chatRoomRepository.findById(chatRoomId)).thenReturn(Optional.of(room));
-        when(participantRepository.existsByChatRoomIdAndMemberIdAndLeftAtIsNull(room.getId(), memberId))
-                .thenReturn(false);
+        when(chatRoomReader.getRoom(chatRoomId)).thenReturn(room);
+        doThrow(new ChatRoomException(com.elevenst.realtimechat.domain.chatroom.exception.ChatRoomErrorCode.ACCESS_DENIED))
+                .when(chatRoomReader).validateParticipant(room.getId(), memberId);
 
         assertThatThrownBy(() -> chatMessageService.getPreviousMessages(memberId, chatRoomId, null, 30))
                 .isInstanceOf(ChatRoomException.class)

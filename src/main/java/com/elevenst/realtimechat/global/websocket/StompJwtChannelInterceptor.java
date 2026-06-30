@@ -2,7 +2,7 @@ package com.elevenst.realtimechat.global.websocket;
 
 import com.elevenst.realtimechat.domain.chatroom.exception.ChatRoomErrorCode;
 import com.elevenst.realtimechat.domain.chatroom.exception.ChatRoomException;
-import com.elevenst.realtimechat.domain.chatroom.repository.ChatRoomParticipantRepository;
+import com.elevenst.realtimechat.domain.chatroom.service.ChatRoomService;
 import com.elevenst.realtimechat.global.security.JwtTokenProvider;
 import com.elevenst.realtimechat.global.security.token.AccessTokenBlacklist;
 import com.elevenst.realtimechat.global.security.token.TokenClaims;
@@ -36,7 +36,7 @@ public class StompJwtChannelInterceptor implements ChannelInterceptor {
     private final JwtTokenProvider jwtTokenProvider;
     private final AccessTokenBlacklist accessTokenBlacklist;
     private final TokenInvalidationRegistry tokenInvalidationRegistry;
-    private final ChatRoomParticipantRepository participantRepository;
+    private final ChatRoomService chatRoomService;
 
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
@@ -154,9 +154,7 @@ public class StompJwtChannelInterceptor implements ChannelInterceptor {
 
         Long chatRoomId = parseChatRoomId(destination);
         Long memberId = parseMemberId(accessor);
-        if (!participantRepository.existsByChatRoomIdAndMemberIdAndLeftAtIsNull(chatRoomId, memberId)) {
-            throw new ChatRoomException(ChatRoomErrorCode.ACCESS_DENIED);
-        }
+        chatRoomService.validateParticipantExistence(chatRoomId, memberId);
     }
 
     private Long parseChatRoomId(String destination) {

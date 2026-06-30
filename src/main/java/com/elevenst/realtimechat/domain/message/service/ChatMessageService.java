@@ -1,10 +1,6 @@
 package com.elevenst.realtimechat.domain.message.service;
 
 import com.elevenst.realtimechat.domain.chatroom.entity.ChatRoom;
-import com.elevenst.realtimechat.domain.chatroom.exception.ChatRoomErrorCode;
-import com.elevenst.realtimechat.domain.chatroom.exception.ChatRoomException;
-import com.elevenst.realtimechat.domain.chatroom.repository.ChatRoomParticipantRepository;
-import com.elevenst.realtimechat.domain.chatroom.repository.ChatRoomRepository;
 import com.elevenst.realtimechat.domain.message.dto.ChatMessageHistoryResponse;
 import com.elevenst.realtimechat.domain.message.dto.ChatMessageRequest;
 import com.elevenst.realtimechat.domain.message.dto.ChatMessageResponse;
@@ -32,8 +28,7 @@ public class ChatMessageService {
     private static final int ACTIVE_MESSAGE_RETENTION_DAYS = 30;
 
     private final ChatMessageRepository chatMessageRepository;
-    private final ChatRoomRepository chatRoomRepository;
-    private final ChatRoomParticipantRepository participantRepository;
+    private final ChatMessageChatRoomReader chatRoomReader;
     private final ChatMessagePublisher chatMessagePublisher;
     private final Clock clock;
     private final ChatMessagePersistenceService chatMessagePersistenceService;
@@ -129,14 +124,11 @@ public class ChatMessageService {
     }
 
     private ChatRoom getRoom(Long chatRoomId) {
-        return chatRoomRepository.findById(chatRoomId)
-                .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHAT_ROOM_NOT_FOUND));
+        return chatRoomReader.getRoom(chatRoomId);
     }
 
     private void validateParticipant(Long chatRoomId, Long memberId) {
-        if (!participantRepository.existsByChatRoomIdAndMemberIdAndLeftAtIsNull(chatRoomId, memberId)) {
-            throw new ChatRoomException(ChatRoomErrorCode.ACCESS_DENIED);
-        }
+        chatRoomReader.validateParticipant(chatRoomId, memberId);
     }
 
     private void publishAfterCommit(ChatMessage message) {

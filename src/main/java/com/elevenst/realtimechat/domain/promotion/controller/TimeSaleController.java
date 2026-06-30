@@ -4,7 +4,7 @@ import com.elevenst.realtimechat.global.security.AuthenticatedMember;
 import com.elevenst.realtimechat.domain.promotion.dto.TimeSaleCreateRequest;
 import com.elevenst.realtimechat.domain.promotion.dto.TimeSaleResponse;
 import com.elevenst.realtimechat.domain.promotion.dto.TimeSaleUpdateRequest;
-import com.elevenst.realtimechat.domain.promotion.service.TimeSaleService;
+import com.elevenst.realtimechat.domain.promotion.service.TimeSaleFacade;
 import com.elevenst.realtimechat.global.response.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +28,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 @RequestMapping("/api/v1/timesales")
 public class TimeSaleController {
 
-    private final TimeSaleService timeSaleService;
+    private final TimeSaleFacade timeSaleFacade;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -38,7 +38,7 @@ public class TimeSaleController {
     ) {
         return ApiResponse.success(
                 "타임세일이 등록되었습니다.",
-                timeSaleService.createTimeSale(member.memberId(), request)
+                timeSaleFacade.createTimeSale(member.memberId(), request)
         );
     }
 
@@ -50,7 +50,7 @@ public class TimeSaleController {
     ) {
         return ApiResponse.success(
                 "타임세일이 수정되었습니다.",
-                timeSaleService.updateTimeSale(member.memberId(), timeSaleId, request)
+                timeSaleFacade.updateTimeSale(member.memberId(), timeSaleId, request)
         );
     }
 
@@ -58,7 +58,7 @@ public class TimeSaleController {
     public ApiResponse<TimeSaleResponse> getTimeSale(@PathVariable Long timeSaleId) {
         return ApiResponse.success(
                 "조회 성공",
-                timeSaleService.getTimeSale(timeSaleId)
+                timeSaleFacade.getTimeSale(timeSaleId)
         );
     }
 
@@ -70,7 +70,7 @@ public class TimeSaleController {
         Pageable pageable = PageRequest.of(page, size);
         return ApiResponse.success(
                 "조회 성공",
-                timeSaleService.getTimeSales(pageable)
+                timeSaleFacade.getTimeSales(pageable)
         );
     }
 }

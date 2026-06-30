@@ -1,7 +1,6 @@
 package com.elevenst.realtimechat.domain.message.service;
 
 import com.elevenst.realtimechat.domain.chatroom.entity.ChatRoom;
-import com.elevenst.realtimechat.domain.chatroom.repository.ChatRoomRepository;
 import com.elevenst.realtimechat.domain.message.dto.ChatMessageRequest;
 import com.elevenst.realtimechat.domain.message.entity.ChatMessage;
 import com.elevenst.realtimechat.domain.message.entity.MessageType;
@@ -19,7 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ChatMessagePersistenceService {
 
     private final ChatMessageRepository chatMessageRepository;
-    private final ChatRoomRepository chatRoomRepository;
+    private final ChatMessageChatRoomReader chatRoomReader;
     private final ChatMessageProductSnapshotReader productSnapshotReader;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -29,7 +28,7 @@ public class ChatMessagePersistenceService {
             ChatMessageRequest request,
             MessageType messageType
     ) {
-        ChatRoom room = chatRoomRepository.getReferenceById(chatRoomId);
+        ChatRoom room = chatRoomReader.getRoomReference(chatRoomId);
         ChatMessage message = createMessage(room, senderId, request, messageType);
         return chatMessageRepository.saveAndFlush(message);
     }

@@ -95,7 +95,8 @@ public class ProductService {
         return productSearchService.searchProductsWithCache(normalizedKeyword, categoryId, page, size);
     }
 
-    private Product getProductEntity(Long productId) {
+    @Transactional(readOnly = true)
+    public Product getProductEntity(Long productId) {
         return productRepository.findById(productId)
                 .orElseThrow(() -> new ProductException(ProductErrorCode.PRODUCT_NOT_FOUND));
     }
