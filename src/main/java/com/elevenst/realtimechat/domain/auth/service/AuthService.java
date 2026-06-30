@@ -37,6 +37,7 @@ public class AuthService {
         if (!member.isActive() || !passwordEncoder.matches(request.password(), member.getPasswordHash())) {
             throw new BusinessException(AuthErrorCode.INVALID_CREDENTIALS);
         }
+
         return issueTokens(member.getId(), member.getRole());
     }
 
@@ -119,6 +120,7 @@ public class AuthService {
         if (!claims.isRefresh()) {
             throw new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN);
         }
+
         return claims;
     }
 

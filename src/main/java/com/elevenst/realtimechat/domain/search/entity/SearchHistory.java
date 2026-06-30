@@ -55,6 +55,7 @@ public class SearchHistory {
         if (guestUuid == null || guestUuid.trim().isBlank()) {
             return null;
         }
+
         return guestUuid.trim();
     }
 }

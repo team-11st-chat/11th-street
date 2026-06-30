@@ -86,6 +86,7 @@ public class RedisChatMessageSubscriber implements MessageListener {
         if (value instanceof Number number) {
             return number.longValue();
         }
+
         return Long.valueOf(value.toString());
     }
 
@@ -96,6 +97,7 @@ public class RedisChatMessageSubscriber implements MessageListener {
         if (value instanceof BigDecimal bigDecimal) {
             return bigDecimal;
         }
+
         return new BigDecimal(value.toString());
     }
 
@@ -103,6 +105,7 @@ public class RedisChatMessageSubscriber implements MessageListener {
         if (value instanceof LocalDateTime localDateTime) {
             return localDateTime;
         }
+
         return LocalDateTime.parse(value.toString());
     }
 }

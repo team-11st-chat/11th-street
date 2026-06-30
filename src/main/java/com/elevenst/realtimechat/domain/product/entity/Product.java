@@ -61,6 +61,7 @@ public class Product extends BaseEntity {
         validateStockQuantity(stockQuantity);
 
         SaleStatus status = stockQuantity == 0 ? SaleStatus.SOLD_OUT : SaleStatus.ON_SALE;
+
         return new Product(
                 null,
                 sellerId,
