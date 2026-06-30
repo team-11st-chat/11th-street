@@ -46,10 +46,9 @@ class TimeSalePurchaseServiceTest {
         Product product = createProduct(100L, 10);
         TimeSale timeSale = createTimeSale(10L, product, now.minusMinutes(1), now.plusMinutes(1));
         TimeSaleStock stock = new TimeSaleStock(timeSale, 5);
-        given(timeSaleRepository.findById(10L)).willReturn(Optional.of(timeSale));
         given(timeSaleStockRepository.findByTimeSaleId(10L)).willReturn(Optional.of(stock));
 
-        TimeSalePurchaseSnapshot result = timeSalePurchaseService.purchase(10L, 3, now);
+        TimeSalePurchaseSnapshot result = timeSalePurchaseService.purchase(timeSale, 3, now);
 
         assertThat(result.productId()).isEqualTo(100L);
         assertThat(result.timeSaleId()).isEqualTo(10L);
@@ -64,7 +63,7 @@ class TimeSalePurchaseServiceTest {
     void 타임세일이_존재하지_않으면_예외가_발생한다() {
         given(timeSaleRepository.findById(10L)).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> timeSalePurchaseService.purchase(10L, 1, LocalDateTime.now()))
+        assertThatThrownBy(() -> timeSalePurchaseService.validatePurchasable(10L, LocalDateTime.now()))
                 .isInstanceOf(TimeSaleException.class)
                 .extracting(exception -> ((TimeSaleException) exception).getErrorCode())
                 .isEqualTo(TimeSaleErrorCode.TIME_SALE_NOT_FOUND);
@@ -74,9 +73,8 @@ class TimeSalePurchaseServiceTest {
     void 타임세일이_진행중이_아니면_재고를_조회하지_않고_예외가_발생한다() {
         LocalDateTime now = LocalDateTime.now();
         TimeSale timeSale = createTimeSale(10L, createProduct(100L, 10), now.plusMinutes(1), now.plusMinutes(10));
-        given(timeSaleRepository.findById(10L)).willReturn(Optional.of(timeSale));
 
-        assertThatThrownBy(() -> timeSalePurchaseService.purchase(10L, 1, now))
+        assertThatThrownBy(() -> timeSalePurchaseService.purchase(timeSale, 1, now))
                 .isInstanceOf(TimeSaleException.class)
                 .extracting(exception -> ((TimeSaleException) exception).getErrorCode())
                 .isEqualTo(TimeSaleErrorCode.TIME_SALE_001);
@@ -84,13 +82,14 @@ class TimeSalePurchaseServiceTest {
     }
 
     @Test
-    void 구매_가능_검증은_진행중인_타임세일이면_통과한다() {
+    void 구매_가능_검증은_진행중인_타임세일이면_통과하고_타임세일을_반환한다() {
         LocalDateTime now = LocalDateTime.now();
         TimeSale timeSale = createTimeSale(10L, createProduct(100L, 10), now.minusMinutes(1), now.plusMinutes(1));
         given(timeSaleRepository.findById(10L)).willReturn(Optional.of(timeSale));
 
-        timeSalePurchaseService.validatePurchasable(10L, now);
+        TimeSale result = timeSalePurchaseService.validatePurchasable(10L, now);
 
+        assertThat(result).isSameAs(timeSale);
         verify(timeSaleStockRepository, never()).findByTimeSaleId(10L);
     }
 
@@ -113,10 +112,9 @@ class TimeSalePurchaseServiceTest {
         Product product = createProduct(100L, 10);
         TimeSale timeSale = createTimeSale(10L, product, now.minusMinutes(1), now.plusMinutes(1));
         TimeSaleStock stock = new TimeSaleStock(timeSale, 1);
-        given(timeSaleRepository.findById(10L)).willReturn(Optional.of(timeSale));
         given(timeSaleStockRepository.findByTimeSaleId(10L)).willReturn(Optional.of(stock));
 
-        assertThatThrownBy(() -> timeSalePurchaseService.purchase(10L, 2, now))
+        assertThatThrownBy(() -> timeSalePurchaseService.purchase(timeSale, 2, now))
                 .isInstanceOf(TimeSaleException.class)
                 .extracting(exception -> ((TimeSaleException) exception).getErrorCode())
                 .isEqualTo(TimeSaleErrorCode.TIME_SALE_002);

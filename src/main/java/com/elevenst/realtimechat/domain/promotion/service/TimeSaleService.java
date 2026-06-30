@@ -13,6 +13,9 @@ import com.elevenst.realtimechat.domain.promotion.repository.TimeSaleStockReposi
 import com.elevenst.realtimechat.global.exception.BusinessException;
 import com.elevenst.realtimechat.global.exception.CommonErrorCode;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -80,10 +83,20 @@ public class TimeSaleService {
 
     public Page<TimeSaleResponse> getTimeSales(Pageable pageable) {
         LocalDateTime now = LocalDateTime.now();
-        return timeSaleRepository.findAll(pageable).map(timeSale -> {
+        Page<TimeSale> page = timeSaleRepository.findAll(pageable);
+
+        List<Long> timeSaleIds = page.getContent().stream()
+                .map(TimeSale::getId)
+                .toList();
+        Map<Long, TimeSaleStock> stockByTimeSaleId = timeSaleStockRepository.findByTimeSaleIdIn(timeSaleIds).stream()
+                .collect(Collectors.toMap(stock -> stock.getTimeSale().getId(), stock -> stock));
+
+        return page.map(timeSale -> {
             timeSale.updateStatus(now);
-            TimeSaleStock stock = timeSaleStockRepository.findByTimeSaleId(timeSale.getId())
-                    .orElseThrow(() -> new TimeSaleException(TimeSaleErrorCode.TIME_SALE_NOT_FOUND));
+            TimeSaleStock stock = stockByTimeSaleId.get(timeSale.getId());
+            if (stock == null) {
+                throw new TimeSaleException(TimeSaleErrorCode.TIME_SALE_NOT_FOUND);
+            }
             return TimeSaleResponse.of(timeSale, stock.getRemainingQuantity());
         });
     }
