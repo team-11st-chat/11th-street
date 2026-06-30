@@ -68,7 +68,7 @@ Collected product search metrics:
 - `product_search_response_time`
 - k6 built-ins including `http_reqs`, `http_req_duration`, `http_req_failed`, `dropped_iterations`, and `vus_max`
 
-The generated Markdown summary reports average response time, p95, p99, throughput, failure rate, and dropped iterations. Use dropped iterations, rising failure rate, and sharply increasing p95/p99 as saturation signals.
+The generated Markdown summary reports average response time, p95, p99, throughput, failure rate, and dropped iterations. Use rising failure rate and sharply increasing p95/p99 as saturation signals. (Note: dropped iterations is always 0 because closed-model executors like ramping-vus do not drop iterations.)
 
 The comparison report for issue #95 is maintained in `.agents/wiki-work/ProductSearchK6Comparison.md`.
 
