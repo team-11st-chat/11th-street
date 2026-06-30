@@ -52,7 +52,11 @@ class ProductSearchDummyDataSeeder {
 
         insertProducts(productCount, leaves);
 
-        return new SeedResult(productCount, root.getId(), leaves.stream().map(Category::getId).toList());
+        return new SeedResult(
+                productCount,
+                root.getId(),
+                leaves.stream().map(Category::getId).toList()
+        );
     }
 
     private void insertProducts(int productCount, List<Category> leaves) {

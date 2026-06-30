@@ -61,7 +61,16 @@ public class Product extends BaseEntity {
         validateStockQuantity(stockQuantity);
 
         SaleStatus status = stockQuantity == 0 ? SaleStatus.SOLD_OUT : SaleStatus.ON_SALE;
-        return new Product(null, sellerId, category, name.trim(), price, stockQuantity, status, searchSortOrder(status));
+        return new Product(
+                null,
+                sellerId,
+                category,
+                name.trim(),
+                price,
+                stockQuantity,
+                status,
+                searchSortOrder(status)
+        );
     }
 
     public void update(Long sellerId, Category category, String name, BigDecimal price, Integer stockQuantity, SaleStatus saleStatus) {

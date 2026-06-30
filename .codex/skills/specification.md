@@ -130,7 +130,7 @@
 
 - Specification artifacts should be generated in repository-defined locations.
 - Specification artifact locations must follow repository governance resources when they exist.
-- When no more specific Wiki page is defined, specifications should be written to `.agents/wiki-work/Specification.md` and published as the `Specification` Wiki page.
+- When no more specific Wiki page is defined, specifications should be written to `wiki/Specification.md` and published as the `Specification` Wiki page.
 - Artifact generation should preserve traceability between requirements, domains, specifications, and downstream issues.
 - Artifact generation should keep specification artifacts separate from temporary notes, implementation plans, issue plans, and review artifacts.
 - Artifact generation must avoid duplicating rules already defined in referenced requirements, domain, or common skills.

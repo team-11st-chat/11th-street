@@ -145,7 +145,11 @@ class ProductSearchIndexMigrationTest {
     }
 
     private Connection getConnection() throws SQLException {
-        return DriverManager.getConnection(MYSQL.getJdbcUrl(), MYSQL.getUsername(), MYSQL.getPassword());
+        return DriverManager.getConnection(
+                MYSQL.getJdbcUrl(),
+                MYSQL.getUsername(),
+                MYSQL.getPassword()
+        );
     }
 
     private List<ProductSortRow> readRows(ResultSet resultSet) throws SQLException {

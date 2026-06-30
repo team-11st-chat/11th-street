@@ -45,7 +45,10 @@ public class SearchKeywordService implements SearchKeywordRecorder {
     @Transactional(readOnly = true)
     public List<PopularKeywordResponse> getPopularKeywords() {
         LocalDateTime from = LocalDateTime.now().minusHours(POPULAR_KEYWORD_WINDOW_HOURS);
-        return searchHistoryRepository.findPopularKeywords(from, PageRequest.of(0, DEFAULT_POPULAR_KEYWORD_LIMIT))
+        return searchHistoryRepository.findPopularKeywords(
+                        from,
+                        PageRequest.of(0, DEFAULT_POPULAR_KEYWORD_LIMIT)
+                )
                 .stream()
                 .map(PopularKeywordResponse::from)
                 .toList();

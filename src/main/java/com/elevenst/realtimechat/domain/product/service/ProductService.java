@@ -90,7 +90,12 @@ public class ProductService {
 
     private ProductPageResponse searchProductsWithConfiguredCache(String normalizedKeyword, Long categoryId, int page, int size) {
         if (productSearchCacheProperties.mode() == ProductSearchCacheProperties.Mode.REMOTE) {
-            return productSearchService.searchProductsWithRemoteCache(normalizedKeyword, categoryId, page, size);
+            return productSearchService.searchProductsWithRemoteCache(
+                    normalizedKeyword,
+                    categoryId,
+                    page,
+                    size
+            );
         }
         return productSearchService.searchProductsWithCache(normalizedKeyword, categoryId, page, size);
     }

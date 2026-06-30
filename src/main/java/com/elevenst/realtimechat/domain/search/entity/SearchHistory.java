@@ -36,7 +36,14 @@ public class SearchHistory {
     private LocalDateTime createdAt;
 
     public static SearchHistory create(Long memberId, Long categoryId, String guestUuid, String keyword) {
-        return new SearchHistory(null, memberId, categoryId, normalizeGuestUuid(guestUuid), keyword, null);
+        return new SearchHistory(
+                null,
+                memberId,
+                categoryId,
+                normalizeGuestUuid(guestUuid),
+                keyword,
+                null
+        );
     }
 
     @PrePersist

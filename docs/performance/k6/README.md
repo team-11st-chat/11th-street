@@ -73,7 +73,7 @@ Collected product search metrics:
 
 The generated Markdown summary reports average response time, p95, p99, throughput, failure rate, and dropped iterations. Use rising failure rate and sharply increasing p95/p99 as saturation signals. (Note: dropped iterations is always 0 because closed-model executors like ramping-vus do not drop iterations.)
 
-The comparison report for issue #95 is maintained in `.agents/wiki-work/ProductSearchK6Comparison.md`.
+The comparison report for issue #95 is maintained in `wiki/Performance-K6-Product-Search.md`.
 
 ## Token Input
 
