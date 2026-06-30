@@ -16,7 +16,7 @@ export type Product = {
 
 export type ProductDetail = Product & {
   sellerId: number;
-  sellerName: string;
+  sellerName?: string | null;
   stockQuantity: number;
 };
 

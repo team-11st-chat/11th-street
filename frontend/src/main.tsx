@@ -182,6 +182,16 @@ function formatRoomSeller(room: ChatRoom) {
   return room.sellerName ? `판매자 ${room.sellerName}` : `판매자 #${room.sellerId}`;
 }
 
+function formatProductSeller(product: ProductDetail) {
+  const sellerName = product.sellerName?.trim();
+  return sellerName ? `${sellerName} #${product.sellerId}` : `#${product.sellerId}`;
+}
+
+function formatProductSellerTarget(product: ProductDetail) {
+  const sellerName = product.sellerName?.trim();
+  return sellerName ? `${sellerName} 판매자` : `판매자 #${product.sellerId}`;
+}
+
 function App() {
   const [view, setView] = useState<View>("home");
   const [keyword, setKeyword] = useState("");
@@ -291,7 +301,7 @@ function App() {
       const product = await getProduct(productId);
       const room = await createProductChatRoom(productId);
       setView("support");
-      setNotice(`${product.sellerName} 판매자에게 문의방 연결됨: #${room.id}`);
+      setNotice(`${formatProductSellerTarget(product)}에게 문의방 연결됨: #${room.id}`);
     } catch (error) {
       setNotice((error as Error).message);
     }
@@ -921,7 +931,7 @@ function BackOfficeView({ session, setNotice }: { session: Session; setNotice: (
       <section className="authPanel">
         <span className="eyebrow"><UserRound size={16} /> 백오피스</span>
         <h1>권한이 없습니다</h1>
-        <p>현재 역할은 {session.role ?? "UNKNOWN"}입니다. 상품 운영은 SELLER, 프로모션/CS 운영은 SUPER_ADMIN만 사용할 수 있습니다.</p>
+        <p>현재 역할은 {session.role ?? "UNKNOWN"}입니다. 상품/타임세일 운영은 SELLER, 쿠폰/CS 운영은 SUPER_ADMIN만 사용할 수 있습니다.</p>
       </section>
     );
   }
@@ -939,6 +949,7 @@ function BackOfficeView({ session, setNotice }: { session: Session; setNotice: (
       {isSeller && (
         <div className="backofficeGrid">
           <ProductCreatePanel setNotice={setNotice} />
+          <TimeSaleCreatePanel setNotice={setNotice} />
           <BackOfficeChatPanel
             title="내 상품 문의"
             description="판매자로 참여 중인 상품 문의방을 조회하고 응답합니다."
@@ -952,7 +963,6 @@ function BackOfficeView({ session, setNotice }: { session: Session; setNotice: (
       {isSuperAdmin && (
         <>
           <div className="backofficeGrid">
-            <TimeSaleCreatePanel setNotice={setNotice} />
             <CouponPolicyCreatePanel setNotice={setNotice} />
           </div>
           <BackOfficeChatPanel
@@ -1056,7 +1066,7 @@ function TimeSaleCreatePanel({ setNotice }: { setNotice: (notice: string) => voi
       <div className="sectionTitle">
         <div>
           <h2>타임세일 생성</h2>
-          <p>SUPER_ADMIN 권한으로 실제 상품에 타임세일을 생성합니다.</p>
+          <p>SELLER 권한으로 본인 상품에 타임세일을 생성합니다.</p>
         </div>
       </div>
       <form className="officeForm" onSubmit={submit}>
@@ -1445,18 +1455,21 @@ function ProductDetailPanel({
   onClose: () => void;
   onChat: () => void;
 }) {
+  const sellerLabel = formatProductSeller(product);
+  const sellerTarget = formatProductSellerTarget(product);
+
   return (
     <section className="detailPanel">
       <div>
         <span className="badge">{product.saleStatus}</span>
         <h2>{product.name}</h2>
-        <p>상품 #{product.id} · 판매자 {product.sellerName} #{product.sellerId} · 카테고리 #{product.categoryId}</p>
+        <p>상품 #{product.id} · 판매자 {sellerLabel} · 카테고리 #{product.categoryId}</p>
         <strong>{money.format(Number(product.price))}원</strong>
         <p>재고 {money.format(product.stockQuantity)}개</p>
       </div>
       <div className="heroActions">
         <button className="secondary" onClick={onClose}>닫기</button>
-        <button className="primary" onClick={onChat}><MessageCircle size={18} /> {product.sellerName}에게 문의</button>
+        <button className="primary" onClick={onChat}><MessageCircle size={18} /> {sellerTarget}에게 문의</button>
       </div>
     </section>
   );
