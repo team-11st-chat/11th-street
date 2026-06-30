@@ -1,6 +1,7 @@
 package com.elevenst.realtimechat.domain.order.entity;
 
 import com.elevenst.realtimechat.domain.member.entity.Member;
+import com.elevenst.realtimechat.domain.promotion.service.TimeSalePurchaseSnapshot;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -70,9 +71,26 @@ public class TimeSaleOrder {
     @Column(insertable = false, updatable = false)
     private Long completedMemberId;
 
-    public TimeSaleOrder(Member member, Long productId, Long timeSaleId, String requestId,
-                         String productNameSnapshot, BigDecimal originalPriceSnapshot, BigDecimal salePriceSnapshot,
-                         int quantity, TimeSaleOrderStatus status, String failureReason, LocalDateTime orderedAt) {
+    public static TimeSaleOrder completed(TimeSalePurchaseSnapshot snapshot, Member member,
+                                          String requestId, int quantity, LocalDateTime now) {
+        return new TimeSaleOrder(
+                member,
+                snapshot.productId(),
+                snapshot.timeSaleId(),
+                requestId,
+                snapshot.productName(),
+                snapshot.originalPrice(),
+                snapshot.salePrice(),
+                quantity,
+                TimeSaleOrderStatus.COMPLETED,
+                null,
+                now
+        );
+    }
+
+    protected TimeSaleOrder(Member member, Long productId, Long timeSaleId, String requestId,
+                            String productNameSnapshot, BigDecimal originalPriceSnapshot, BigDecimal salePriceSnapshot,
+                            int quantity, TimeSaleOrderStatus status, String failureReason, LocalDateTime orderedAt) {
         this.member = member;
         this.productId = productId;
         this.timeSaleId = timeSaleId;

@@ -10,7 +10,6 @@ import com.elevenst.realtimechat.domain.promotion.repository.TimeSaleStockReposi
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -19,18 +18,16 @@ public class TimeSalePurchaseService {
     private final TimeSaleRepository timeSaleRepository;
     private final TimeSaleStockRepository timeSaleStockRepository;
 
-    @Transactional
-    public void validatePurchasable(Long timeSaleId, LocalDateTime now) {
+    public TimeSale validatePurchasable(Long timeSaleId, LocalDateTime now) {
         TimeSale timeSale = getTimeSale(timeSaleId);
         validateOngoing(timeSale, now);
+        return timeSale;
     }
 
-    @Transactional
-    public TimeSalePurchaseSnapshot purchase(Long timeSaleId, int quantity, LocalDateTime now) {
-        TimeSale timeSale = getTimeSale(timeSaleId);
+    public TimeSalePurchaseSnapshot purchase(TimeSale timeSale, int quantity, LocalDateTime now) {
         validateOngoing(timeSale, now);
 
-        TimeSaleStock timeSaleStock = timeSaleStockRepository.findByTimeSaleId(timeSaleId)
+        TimeSaleStock timeSaleStock = timeSaleStockRepository.findByTimeSaleId(timeSale.getId())
                 .orElseThrow(() -> new TimeSaleException(TimeSaleErrorCode.TIME_SALE_NOT_FOUND));
 
         if (timeSaleStock.getRemainingQuantity() < quantity || timeSale.getProduct().getStockQuantity() < quantity) {

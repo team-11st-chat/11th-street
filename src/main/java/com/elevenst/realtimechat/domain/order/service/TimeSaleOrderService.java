@@ -7,6 +7,7 @@ import com.elevenst.realtimechat.domain.order.dto.TimeSaleOrderResponse;
 import com.elevenst.realtimechat.domain.order.entity.TimeSaleOrder;
 import com.elevenst.realtimechat.domain.order.entity.TimeSaleOrderStatus;
 import com.elevenst.realtimechat.domain.order.repository.TimeSaleOrderRepository;
+import com.elevenst.realtimechat.domain.promotion.entity.TimeSale;
 import com.elevenst.realtimechat.domain.promotion.exception.TimeSaleErrorCode;
 import com.elevenst.realtimechat.domain.promotion.exception.TimeSaleException;
 import com.elevenst.realtimechat.domain.promotion.service.TimeSalePurchaseService;
@@ -28,28 +29,16 @@ public class TimeSaleOrderService {
     public TimeSaleOrderResponse orderTimeSale(Long memberId, Long timeSaleId, String requestId, TimeSaleOrderRequest request) {
         LocalDateTime now = LocalDateTime.now();
         Member member = memberQueryService.getMemberOrThrow(memberId);
-        timeSalePurchaseService.validatePurchasable(timeSaleId, now);
+        TimeSale timeSale = timeSalePurchaseService.validatePurchasable(timeSaleId, now);
 
         if (timeSaleOrderRepository.existsByMemberIdAndTimeSaleIdAndStatus(
                 memberId, timeSaleId, TimeSaleOrderStatus.COMPLETED)) {
             throw new TimeSaleException(TimeSaleErrorCode.TIME_SALE_003);
         }
 
-        TimeSalePurchaseSnapshot timeSale = timeSalePurchaseService.purchase(timeSaleId, request.quantity(), now);
+        TimeSalePurchaseSnapshot snapshot = timeSalePurchaseService.purchase(timeSale, request.quantity(), now);
 
-        TimeSaleOrder order = new TimeSaleOrder(
-                member,
-                timeSale.productId(),
-                timeSale.timeSaleId(),
-                requestId,
-                timeSale.productName(),
-                timeSale.originalPrice(),
-                timeSale.salePrice(),
-                request.quantity(),
-                TimeSaleOrderStatus.COMPLETED,
-                null,
-                now
-        );
+        TimeSaleOrder order = TimeSaleOrder.completed(snapshot, member, requestId, request.quantity(), now);
         timeSaleOrderRepository.save(order);
 
         return TimeSaleOrderResponse.from(order);
