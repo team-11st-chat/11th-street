@@ -8,9 +8,11 @@ import com.elevenst.realtimechat.domain.promotion.service.CouponPolicyService;
 import com.elevenst.realtimechat.global.response.ApiResponse;
 import com.elevenst.realtimechat.global.security.AuthenticatedMember;
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -26,6 +28,22 @@ public class CouponController {
 
     private final CouponPolicyService couponPolicyService;
     private final CouponIssueFacade couponIssueFacade;
+
+    @GetMapping
+    public ApiResponse<List<CouponPolicyResponse>> getCouponPolicies() {
+        return ApiResponse.success(
+                "Coupon policies retrieved successfully.",
+                couponPolicyService.getCouponPolicies()
+        );
+    }
+
+    @GetMapping("/{couponPolicyId}")
+    public ApiResponse<CouponPolicyResponse> getCouponPolicy(@PathVariable Long couponPolicyId) {
+        return ApiResponse.success(
+                "Coupon policy retrieved successfully.",
+                couponPolicyService.getCouponPolicy(couponPolicyId)
+        );
+    }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
