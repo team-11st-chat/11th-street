@@ -136,7 +136,7 @@ Review
 Long-lived documentation artifacts should use the GitHub Wiki. The local Wiki worktree is:
 
 ```text
-.agents/wiki-work/
+wiki/
 |- Requirements.md
 |- Domain.md
 `- Specification.md
@@ -153,7 +153,7 @@ Artifact mapping:
 
 Guidelines:
 
-- Edit Wiki artifacts locally under `.agents/wiki-work/`.
+- Edit Wiki artifacts locally under `wiki/`.
 - Publish long-lived artifacts to the repository's GitHub Wiki.
 - Do not create a parallel `docs/` tree for requirements, domain, or specification artifacts unless repository governance changes explicitly.
 - Traceability between repository artifacts and GitHub artifacts must be preserved.

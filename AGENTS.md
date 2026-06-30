@@ -70,7 +70,7 @@ Domain analysis and review findings use the output format defined in their skill
 Long-lived project artifacts belong in the GitHub Wiki. The local Wiki worktree is:
 
 ```text
-.agents/wiki-work/
+wiki/
 |- Requirements.md
 |- Domain.md
 `- Specification.md
@@ -79,7 +79,7 @@ Long-lived project artifacts belong in the GitHub Wiki. The local Wiki worktree 
 - Requirements belong in the Wiki page `Requirements.md`.
 - Domain artifacts belong in the Wiki page `Domain.md`.
 - Specifications belong in the Wiki page `Specification.md`.
-- When working locally, edit these pages under `.agents/wiki-work/`.
+- When working locally, edit these pages under `wiki/`.
 - Issues and pull requests belong in GitHub.
 - Preserve traceability between requirements, domains, specifications, issues, commits, pull requests, and reviews.
 

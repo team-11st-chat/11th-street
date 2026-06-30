@@ -38,6 +38,7 @@ public class ProductService {
         Product product = Product.create(sellerId, category, request.name(), request.price(), request.stockQuantity());
         ProductResponse response = ProductResponse.from(productRepository.save(product));
         productSearchCacheEvictor.evictAll();
+
         return response;
     }
 
@@ -57,6 +58,7 @@ public class ProductService {
         );
         ProductResponse response = ProductResponse.from(product);
         productSearchCacheEvictor.evictAll();
+
         return response;
     }
 
@@ -85,13 +87,20 @@ public class ProductService {
         if (cacheable) {
             return searchProductsWithConfiguredCache(normalizedKeyword, categoryId, page, size);
         }
+
         return productSearchService.searchProducts(normalizedKeyword, categoryId, page, size);
     }
 
     private ProductPageResponse searchProductsWithConfiguredCache(String normalizedKeyword, Long categoryId, int page, int size) {
         if (productSearchCacheProperties.mode() == ProductSearchCacheProperties.Mode.REMOTE) {
-            return productSearchService.searchProductsWithRemoteCache(normalizedKeyword, categoryId, page, size);
+            return productSearchService.searchProductsWithRemoteCache(
+                    normalizedKeyword,
+                    categoryId,
+                    page,
+                    size
+            );
         }
+
         return productSearchService.searchProductsWithCache(normalizedKeyword, categoryId, page, size);
     }
 

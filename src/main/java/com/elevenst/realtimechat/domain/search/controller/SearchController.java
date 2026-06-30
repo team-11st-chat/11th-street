@@ -18,6 +18,9 @@ public class SearchController {
 
     @GetMapping("/popular-keywords")
     public ApiResponse<List<PopularKeywordResponse>> getPopularKeywords() {
-        return ApiResponse.success("Popular keywords retrieved successfully.", searchKeywordService.getPopularKeywords());
+        return ApiResponse.success(
+                "Popular keywords retrieved successfully.",
+                searchKeywordService.getPopularKeywords()
+        );
     }
 }

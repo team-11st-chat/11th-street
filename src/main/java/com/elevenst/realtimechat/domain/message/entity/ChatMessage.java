@@ -93,7 +93,17 @@ public class ChatMessage {
             String clientMessageId,
             LocalDateTime sentAt
     ) {
-        return new ChatMessage(chatRoom, senderId, content, clientMessageId, MessageType.TEXT, null, null, null, sentAt);
+        return new ChatMessage(
+                chatRoom,
+                senderId,
+                content,
+                clientMessageId,
+                MessageType.TEXT,
+                null,
+                null,
+                null,
+                sentAt
+        );
     }
 
     public static ChatMessage productReference(
@@ -120,6 +130,16 @@ public class ChatMessage {
     }
 
     public static ChatMessage system(ChatRoom chatRoom, String content, String clientMessageId, LocalDateTime sentAt) {
-        return new ChatMessage(chatRoom, null, content, clientMessageId, MessageType.SYSTEM, null, null, null, sentAt);
+        return new ChatMessage(
+                chatRoom,
+                null,
+                content,
+                clientMessageId,
+                MessageType.SYSTEM,
+                null,
+                null,
+                null,
+                sentAt
+        );
     }
 }

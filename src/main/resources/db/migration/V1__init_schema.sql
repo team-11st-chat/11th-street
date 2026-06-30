@@ -37,13 +37,15 @@ CREATE TABLE product (
     price DECIMAL(10, 2) NOT NULL,
     stock_quantity INT NOT NULL,
     sale_status VARCHAR(20) NOT NULL,
+    search_sort_order INT NOT NULL DEFAULT 0,
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL,
     CONSTRAINT fk_product_seller FOREIGN KEY (seller_id) REFERENCES member(id),
     CONSTRAINT fk_product_category FOREIGN KEY (category_id) REFERENCES category(id)
 );
 
-CREATE INDEX idx_product_search ON product (sale_status, category_id, name);
+CREATE INDEX idx_product_search_default ON product (search_sort_order, id DESC, sale_status);
+CREATE INDEX idx_product_search_category ON product (category_id, search_sort_order, id DESC, sale_status);
 
 -- 4. TIME_SALE
 CREATE TABLE time_sale (
@@ -165,6 +167,8 @@ CREATE TABLE chat_message (
     CONSTRAINT fk_message_sender FOREIGN KEY (sender_id) REFERENCES member(id),
     CONSTRAINT uq_message_composite UNIQUE (chat_room_id, sender_id, client_message_id)
 );
+
+CREATE INDEX idx_chat_message_room_id_sent_at ON chat_message (chat_room_id, id, sent_at);
 
 -- 12. SEARCH_HISTORY
 CREATE TABLE search_history (

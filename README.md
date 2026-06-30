@@ -171,9 +171,27 @@ $env:PERFORMANCE_TEST = "true"
 .\gradlew.bat integrationTest
 ```
 
+## 문서 위치
+
+- `wiki/`: 요구사항, 정책, API 명세, ERD, 성능 분석처럼 장기적으로 추적할 Wiki 문서를 관리합니다.
+- `docs/`: 로컬 실행 절차, 이슈별 작업 기록, 부하 테스트 스크립트와 결과처럼 저장소 안에서 함께 검증해야 하는 문서를 관리합니다.
+- 요구사항, 도메인, 명세 성격의 장기 산출물은 별도 `docs/` 트리로 복제하지 않고 `wiki/` 작업트리에서 편집합니다.
+
+## DB 마이그레이션
+
+Flyway 마이그레이션은 `src/main/resources/db/migration` 아래에서 관리합니다.
+현재 초기 배포 전 단계이므로 이전 이력들은 모두 `V1__init_schema.sql`로 스쿼시(Squash) 통합되어 하나의 파일로 관리됩니다.
+
+로컬 DB를 완전히 초기화해야 하는 경우에만 볼륨을 삭제한 뒤 다시 기동합니다.
+
+```powershell
+docker compose down -v
+docker compose up -d mysql redis
+```
+
 ## CI/CD 배포
 
-배포 파이프라인은 `.github/workflows/ci-cd.yml`에서 관리합니다.
+PR 검증은 `.github/workflows/pr-verify.yml`, 빌드와 배포 파이프라인은 `.github/workflows/ci-cd.yml`에서 관리합니다.
 `main`, `develop` 브랜치에 push되거나 수동 실행할 때 다음 순서로 동작합니다.
 
 1. Gradle compile, unit test, integration test를 실행합니다.
