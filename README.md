@@ -180,8 +180,7 @@ $env:PERFORMANCE_TEST = "true"
 ## DB 마이그레이션
 
 Flyway 마이그레이션은 `src/main/resources/db/migration` 아래에서 관리합니다.
-현재 이력은 `V1__init_schema.sql`, `V2__optimize_product_search_indexes.sql`, `V3__add_chat_message_retention_index.sql` 순서입니다.
-이미 적용된 환경의 체크섬과 순서를 보존해야 하므로, 기존 버전을 스쿼시하지 않고 새 스키마 변경은 다음 버전 파일로 추가합니다.
+현재 초기 배포 전 단계이므로 이전 이력들은 모두 `V1__init_schema.sql`로 스쿼시(Squash) 통합되어 하나의 파일로 관리됩니다.
 
 로컬 DB를 완전히 초기화해야 하는 경우에만 볼륨을 삭제한 뒤 다시 기동합니다.
 
