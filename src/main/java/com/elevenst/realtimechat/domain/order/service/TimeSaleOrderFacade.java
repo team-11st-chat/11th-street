@@ -8,19 +8,30 @@ import com.elevenst.realtimechat.global.exception.BusinessException;
 import com.elevenst.realtimechat.global.exception.CommonErrorCode;
 import com.elevenst.realtimechat.global.support.IdempotencyManager;
 import com.elevenst.realtimechat.global.support.LockManager;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
-@RequiredArgsConstructor
 public class TimeSaleOrderFacade {
 
-    private static final long REQUEST_ID_TTL_SECONDS = 10;
     private static final String TIME_SALE_LOCK_KEY_PREFIX = "lock:timesale:";
 
     private final TimeSaleOrderService timeSaleOrderService;
     private final LockManager lockManager;
     private final IdempotencyManager idempotencyManager;
+    private final long requestIdTtlSeconds;
+
+    public TimeSaleOrderFacade(
+            TimeSaleOrderService timeSaleOrderService,
+            LockManager lockManager,
+            IdempotencyManager idempotencyManager,
+            @Value("${app.idempotency.request-id-ttl-seconds:10}") long requestIdTtlSeconds
+    ) {
+        this.timeSaleOrderService = timeSaleOrderService;
+        this.lockManager = lockManager;
+        this.idempotencyManager = idempotencyManager;
+        this.requestIdTtlSeconds = requestIdTtlSeconds;
+    }
 
     public TimeSaleOrderResponse orderTimeSale(Long memberId, Long timeSaleId, String requestId, TimeSaleOrderRequest request) {
         String lockKey = TIME_SALE_LOCK_KEY_PREFIX + timeSaleId;
@@ -30,7 +41,7 @@ public class TimeSaleOrderFacade {
         }
 
         try {
-            if (!idempotencyManager.checkAndSet(requestId, REQUEST_ID_TTL_SECONDS)) {
+            if (!idempotencyManager.checkAndSet(requestId, requestIdTtlSeconds)) {
                 throw new TimeSaleException(TimeSaleErrorCode.TIME_SALE_003);
             }
             return timeSaleOrderService.orderTimeSale(memberId, timeSaleId, requestId, request);

@@ -42,7 +42,7 @@ class TimeSaleOrderFacadeTest {
 
     @BeforeEach
     void setUp() {
-        timeSaleOrderFacade = new TimeSaleOrderFacade(timeSaleOrderService, lockManager, idempotencyManager);
+        timeSaleOrderFacade = new TimeSaleOrderFacade(timeSaleOrderService, lockManager, idempotencyManager, 10L);
     }
 
     @Test

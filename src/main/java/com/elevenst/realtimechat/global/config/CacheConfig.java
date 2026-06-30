@@ -4,6 +4,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.elevenst.realtimechat.domain.product.service.ProductSearchCacheProperties;
 import java.time.Duration;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
@@ -23,9 +24,19 @@ public class CacheConfig {
     public static final String POPULAR_KEYWORDS_CACHE = "popular_keywords";
     public static final String POPULAR_KEYWORDS_KEY = "top";
 
-    public static final Duration PRODUCT_SEARCH_TTL = Duration.ofMinutes(10);
-    public static final Duration POPULAR_KEYWORDS_TTL = Duration.ofMinutes(1);
-    public static final long PRODUCT_SEARCH_MAXIMUM_SIZE = 10_000L;
+    private final Duration productSearchTtl;
+    private final Duration popularKeywordsTtl;
+    private final long productSearchMaximumSize;
+
+    public CacheConfig(
+            @Value("${app.cache.caffeine.product-search-ttl:10m}") Duration productSearchTtl,
+            @Value("${app.cache.caffeine.popular-keywords-ttl:1m}") Duration popularKeywordsTtl,
+            @Value("${app.cache.caffeine.product-search-maximum-size:10000}") long productSearchMaximumSize
+    ) {
+        this.productSearchTtl = productSearchTtl;
+        this.popularKeywordsTtl = popularKeywordsTtl;
+        this.productSearchMaximumSize = productSearchMaximumSize;
+    }
 
     @Bean
     @Primary
@@ -33,12 +44,12 @@ public class CacheConfig {
         SimpleCacheManager cacheManager = new SimpleCacheManager();
         cacheManager.setCaches(List.of(
             new CaffeineCache(PRODUCT_SEARCH_CACHE, Caffeine.newBuilder()
-                .expireAfterWrite(PRODUCT_SEARCH_TTL)
-                .maximumSize(PRODUCT_SEARCH_MAXIMUM_SIZE)
+                .expireAfterWrite(productSearchTtl)
+                .maximumSize(productSearchMaximumSize)
                 .recordStats()
                 .build()),
             new CaffeineCache(POPULAR_KEYWORDS_CACHE, Caffeine.newBuilder()
-                .expireAfterWrite(POPULAR_KEYWORDS_TTL)
+                .expireAfterWrite(popularKeywordsTtl)
                 .recordStats()
                 .build())
         ));

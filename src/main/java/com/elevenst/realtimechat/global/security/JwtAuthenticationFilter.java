@@ -55,6 +55,32 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
+    private String resolveBearerToken(HttpServletRequest request) {
+        String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
+        if (authorization != null && authorization.startsWith(BEARER_PREFIX)) {
+            return authorization.substring(BEARER_PREFIX.length());
+        }
+
+        return null;
+    }
+
+    private boolean shouldSkipAuthentication(TokenClaims claims) {
+        // Access Token인지, 그리고 인증 객체를 만들기 위한 role 값이 있는지 검증합니다.
+        // Refresh Token이 들어오거나 role이 없는 토큰이면 요청 인증에 사용할 수 없으므로 중단합니다.
+        if (!claims.isAccess() || claims.role() == null) {
+            return true;
+        }
+        // 로그아웃 등으로 무효화된 access token인지 검증합니다.
+        // jti는 토큰의 고유 ID이고, 블랙리스트에 있으면 아직 만료 전이어도 더 이상 인증에 쓰면 안 됩니다.
+        if (accessTokenBlacklist.contains(claims.jti())) {
+            return true;
+        }
+
+        // 사용자 단위로 토큰이 무효화됐는지 검증합니다.
+        // 예를 들어 비밀번호 변경, 전체 로그아웃, 계정 보안 이벤트 이후에 발급 시각이 오래된 토큰을 거부하는 용도입니다.
+        return tokenInvalidationRegistry.isInvalidated(claims.memberId(), claims.issuedAt());
+    }
+
     private void authenticate(String token) {
         TokenClaims claims;
         // 토큰 자체가 파싱 가능한지 검증합니다. 서명이 틀렸거나, 만료됐거나, 형식이 잘못됐거나, JWT claims가 비정상인 경우 여기서 걸립니다.
@@ -82,31 +108,5 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
             principal, null, List.of(new SimpleGrantedAuthority("ROLE_" + role.name())));
         SecurityContextHolder.getContext().setAuthentication(authentication);
-    }
-
-    private String resolveBearerToken(HttpServletRequest request) {
-        String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
-        if (authorization != null && authorization.startsWith(BEARER_PREFIX)) {
-            return authorization.substring(BEARER_PREFIX.length());
-        }
-
-        return null;
-    }
-
-    private boolean shouldSkipAuthentication(TokenClaims claims) {
-        // Access Token인지, 그리고 인증 객체를 만들기 위한 role 값이 있는지 검증합니다.
-        // Refresh Token이 들어오거나 role이 없는 토큰이면 요청 인증에 사용할 수 없으므로 중단합니다.
-        if (!claims.isAccess() || claims.role() == null) {
-            return true;
-        }
-        // 로그아웃 등으로 무효화된 access token인지 검증합니다.
-        // jti는 토큰의 고유 ID이고, 블랙리스트에 있으면 아직 만료 전이어도 더 이상 인증에 쓰면 안 됩니다.
-        if (accessTokenBlacklist.contains(claims.jti())) {
-            return true;
-        }
-
-        // 사용자 단위로 토큰이 무효화됐는지 검증합니다.
-        // 예를 들어 비밀번호 변경, 전체 로그아웃, 계정 보안 이벤트 이후에 발급 시각이 오래된 토큰을 거부하는 용도입니다.
-        return tokenInvalidationRegistry.isInvalidated(claims.memberId(), claims.issuedAt());
     }
 }

@@ -1,6 +1,7 @@
 package com.elevenst.realtimechat.global.config;
 
 import java.time.Duration;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Bean;
@@ -19,15 +20,14 @@ import tools.jackson.databind.jsontype.PolymorphicTypeValidator;
 @EnableConfigurationProperties(RedisKeyPrefixProperties.class)
 public class RedisCacheConfig {
 
-    public static final Duration DEFAULT_REDIS_CACHE_TTL = Duration.ofMinutes(10);
-
     @Bean(name = "redisCacheManager")
     public CacheManager redisCacheManager(
             RedisConnectionFactory redisConnectionFactory,
-            RedisKeyPrefixProperties redisKeyPrefixProperties
+            RedisKeyPrefixProperties redisKeyPrefixProperties,
+            @Value("${app.cache.redis.default-ttl:10m}") Duration defaultTtl
     ) {
         RedisCacheConfiguration cacheConfiguration = RedisCacheConfiguration.defaultCacheConfig()
-                .entryTtl(DEFAULT_REDIS_CACHE_TTL)
+                .entryTtl(defaultTtl)
                 .computePrefixWith(cacheName -> redisKeyPrefixProperties.cacheKey(cacheName + "::"))
                 .disableCachingNullValues()
                 .serializeKeysWith(SerializationPair.fromSerializer(new StringRedisSerializer()))

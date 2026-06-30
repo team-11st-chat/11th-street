@@ -11,12 +11,14 @@ import com.elevenst.realtimechat.domain.search.repository.SearchHistoryRepositor
 import com.elevenst.realtimechat.domain.search.repository.SearchHistoryRepository.PopularKeywordRow;
 import com.elevenst.realtimechat.global.config.CacheConfig;
 import com.github.benmanes.caffeine.cache.Policy;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
@@ -29,6 +31,9 @@ class SearchKeywordServiceCacheTest {
 
     @Autowired
     private SearchKeywordService searchKeywordService;
+
+    @Value("${app.cache.caffeine.popular-keywords-ttl}")
+    private Duration popularKeywordsTtl;
 
     @Autowired
     private CacheManager cacheManager;
@@ -53,7 +58,7 @@ class SearchKeywordServiceCacheTest {
         Policy.FixedExpiration<Object, Object> expiration = nativeCache.policy().expireAfterWrite().orElseThrow();
 
         assertThat(expiration.getExpiresAfter(TimeUnit.SECONDS))
-                .isEqualTo(CacheConfig.POPULAR_KEYWORDS_TTL.toSeconds());
+                .isEqualTo(popularKeywordsTtl.toSeconds());
     }
 
     @Test

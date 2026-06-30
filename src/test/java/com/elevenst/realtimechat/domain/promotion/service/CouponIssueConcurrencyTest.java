@@ -86,7 +86,7 @@ class CouponIssueConcurrencyTest {
         cleanUp();
         when(idempotencyManager.checkAndSet(anyString(), anyLong())).thenReturn(true);
         // 분산 락 미적용(no-op) 재현: 락을 항상 획득 성공으로 처리해 직렬화가 없도록 둔다.
-        when(lockManager.tryLock(anyString(), anyLong(), anyLong(), any())).thenReturn(true);
+        when(lockManager.tryLock(anyString())).thenReturn(true);
     }
 
     @AfterEach

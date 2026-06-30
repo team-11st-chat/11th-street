@@ -41,7 +41,7 @@ class CouponIssueFacadeTest {
 
     @BeforeEach
     void setUp() {
-        couponIssueFacade = new CouponIssueFacade(couponIssueService, lockManager, idempotencyManager);
+        couponIssueFacade = new CouponIssueFacade(couponIssueService, lockManager, idempotencyManager, 10L);
     }
 
     @Test
@@ -57,7 +57,7 @@ class CouponIssueFacadeTest {
                 .extracting(exception -> ((CouponException) exception).getErrorCode())
                 .isEqualTo(CouponErrorCode.COUPON_003);
 
-        verify(lockManager, never()).tryLock("lock:coupon:" + couponPolicyId, 3, 2, TimeUnit.SECONDS);
+        verify(lockManager, never()).tryLock("lock:coupon:" + couponPolicyId);
         verify(couponIssueService, never()).issueCoupon(memberId, couponPolicyId);
     }
 
@@ -69,7 +69,7 @@ class CouponIssueFacadeTest {
         String requestId = "request-1";
         String lockKey = "lock:coupon:" + couponPolicyId;
         when(idempotencyManager.checkAndSet(requestId, 10)).thenReturn(true);
-        when(lockManager.tryLock(lockKey, 3, 2, TimeUnit.SECONDS)).thenReturn(false);
+        when(lockManager.tryLock(lockKey)).thenReturn(false);
 
         assertThatThrownBy(() -> couponIssueFacade.issueCoupon(memberId, couponPolicyId, requestId))
                 .isInstanceOf(BusinessException.class)
@@ -95,7 +95,7 @@ class CouponIssueFacadeTest {
         );
         String lockKey = "lock:coupon:" + couponPolicyId;
         when(idempotencyManager.checkAndSet(requestId, 10)).thenReturn(true);
-        when(lockManager.tryLock(lockKey, 3, 2, TimeUnit.SECONDS)).thenReturn(true);
+        when(lockManager.tryLock(lockKey)).thenReturn(true);
         when(couponIssueService.issueCoupon(memberId, couponPolicyId)).thenReturn(response);
 
         IssuedCouponResponse result = couponIssueFacade.issueCoupon(memberId, couponPolicyId, requestId);
@@ -103,7 +103,7 @@ class CouponIssueFacadeTest {
         assertThat(result).isEqualTo(response);
         InOrder inOrder = inOrder(idempotencyManager, lockManager, couponIssueService);
         inOrder.verify(idempotencyManager).checkAndSet(requestId, 10);
-        inOrder.verify(lockManager).tryLock(lockKey, 3, 2, TimeUnit.SECONDS);
+        inOrder.verify(lockManager).tryLock(lockKey);
         inOrder.verify(couponIssueService).issueCoupon(memberId, couponPolicyId);
         inOrder.verify(lockManager).unlock(lockKey);
     }
@@ -117,7 +117,7 @@ class CouponIssueFacadeTest {
         String lockKey = "lock:coupon:" + couponPolicyId;
         CouponException exception = new CouponException(CouponErrorCode.COUPON_002);
         when(idempotencyManager.checkAndSet(requestId, 10)).thenReturn(true);
-        when(lockManager.tryLock(lockKey, 3, 2, TimeUnit.SECONDS)).thenReturn(true);
+        when(lockManager.tryLock(lockKey)).thenReturn(true);
         when(couponIssueService.issueCoupon(memberId, couponPolicyId)).thenThrow(exception);
 
         assertThatThrownBy(() -> couponIssueFacade.issueCoupon(memberId, couponPolicyId, requestId))

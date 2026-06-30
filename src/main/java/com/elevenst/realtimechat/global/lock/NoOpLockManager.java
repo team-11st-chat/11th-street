@@ -23,6 +23,11 @@ import org.springframework.stereotype.Component;
 public class NoOpLockManager implements LockManager {
 
     @Override
+    public boolean tryLock(String key) {
+        return true;
+    }
+
+    @Override
     public boolean tryLock(String key, long waitTime, long leaseTime, TimeUnit unit) {
         // 측정 전용: 락을 걸지 않고 항상 획득 성공으로 처리한다(직렬화 없음).
         return true;
