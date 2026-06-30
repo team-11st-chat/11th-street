@@ -51,10 +51,13 @@ $env:SUMMARY_DIR = "docs/performance/k6/results/product-search-v1"
 k6 run docs/performance/k6/product-search-v1-load.js
 ```
 
-Run v2 with Redis Remote Cache enabled on the application:
+Run v2 with Redis Remote Cache enabled.
+> [!IMPORTANT]
+> `PRODUCT_SEARCH_CACHE_MODE=REMOTE` 환경 변수는 k6 실행 셸이 아니라, **Spring Boot 애플리케이션 프로세스가 시작될 때** 읽는 설정입니다.
+> 애플리케이션 기동 셸에서 해당 환경 변수를 주입하고 실행하여 Remote Cache 모드로 동작하는지 반드시 확인해 주세요.
 
+k6 실행 셸 환경 설정:
 ```powershell
-$env:PRODUCT_SEARCH_CACHE_MODE = "REMOTE"
 $env:WARMUP_REQUESTS = "20"
 $env:SUMMARY_DIR = "docs/performance/k6/results/product-search-v2"
 k6 run docs/performance/k6/product-search-v2-load.js
@@ -68,7 +71,7 @@ Collected product search metrics:
 - `product_search_response_time`
 - k6 built-ins including `http_reqs`, `http_req_duration`, `http_req_failed`, `dropped_iterations`, and `vus_max`
 
-The generated Markdown summary reports average response time, p95, p99, throughput, failure rate, and dropped iterations. Use dropped iterations, rising failure rate, and sharply increasing p95/p99 as saturation signals.
+The generated Markdown summary reports average response time, p95, p99, throughput, failure rate, and dropped iterations. Use rising failure rate and sharply increasing p95/p99 as saturation signals. (Note: dropped iterations is normally 0 for ramping-vus)
 
 The comparison report for issue #95 is maintained in `.agents/wiki-work/ProductSearchK6Comparison.md`.
 
