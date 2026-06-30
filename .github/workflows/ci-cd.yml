@@ -293,7 +293,7 @@ jobs:
 
           VERSION=$(aws ec2 create-launch-template-version \
             --launch-template-id "${LAUNCH_TEMPLATE_ID}" \
-            --source-version '$Latest' \
+            --source-version '$Default' \
             --launch-template-data "{\"UserData\":\"${USER_DATA}\"}" \
             --query 'LaunchTemplateVersion.VersionNumber' \
             --output text)
@@ -363,7 +363,7 @@ jobs:
           exit 1
 
       - name: Roll back launch template on deployment failure
-        if: failure() && steps.launch-template.outputs.previous_version != ''
+        if: ${{ (failure() || cancelled()) && steps.launch-template.outputs.previous_version != '' }}
         env:
           ASG_NAME: ${{ vars.ASG_NAME }}
           LAUNCH_TEMPLATE_ID: ${{ vars.LAUNCH_TEMPLATE_ID }}
@@ -400,6 +400,7 @@ jobs:
           for i in $(seq 1 5); do
             if ROLLBACK_REFRESH_ID=$(aws autoscaling start-instance-refresh \
               --auto-scaling-group-name "${ASG_NAME}" \
+              --desired-configuration "{\"LaunchTemplate\":{\"LaunchTemplateId\":\"${LAUNCH_TEMPLATE_ID}\",\"Version\":\"${PREVIOUS_VERSION}\"}}" \
               --preferences '{"MinHealthyPercentage":100,"InstanceWarmup":120}' \
               --query 'InstanceRefreshId' \
               --output text); then
