@@ -18,7 +18,7 @@ import com.elevenst.realtimechat.domain.chatroom.exception.ChatRoomException;
 import com.elevenst.realtimechat.domain.chatroom.repository.ChatRoomParticipantRepository;
 import com.elevenst.realtimechat.domain.chatroom.repository.ChatRoomRepository;
 import com.elevenst.realtimechat.domain.member.entity.MemberRole;
-import com.elevenst.realtimechat.domain.member.repository.MemberRepository;
+import com.elevenst.realtimechat.domain.member.service.MemberQueryService;
 import com.elevenst.realtimechat.domain.message.service.ChatMessageService;
 import com.elevenst.realtimechat.global.support.LockManager;
 import java.time.LocalDateTime;
@@ -40,7 +40,7 @@ class ChatRoomServiceTest {
     private ChatRoomParticipantRepository participantRepository;
 
     @Mock
-    private MemberRepository memberRepository;
+    private MemberQueryService memberQueryService;
 
     @Mock
     private ChatRoomProductCatalogReader productCatalogReader;
@@ -58,7 +58,7 @@ class ChatRoomServiceTest {
         chatRoomService = new ChatRoomService(
                 chatRoomRepository,
                 participantRepository,
-                memberRepository,
+                memberQueryService,
                 productCatalogReader,
                 chatMessageService,
                 lockManager
@@ -72,7 +72,7 @@ class ChatRoomServiceTest {
         Long productId = 100L;
         ChatRoom existingRoom = ChatRoom.product(buyerId, sellerId);
 
-        when(memberRepository.existsById(buyerId)).thenReturn(true);
+        when(memberQueryService.existsById(buyerId)).thenReturn(true);
         when(productCatalogReader.getProductSeller(productId))
                 .thenReturn(new ProductSellerSnapshot(productId, sellerId));
         when(lockManager.tryLock("lock:chatroom:product:" + sellerId + ":" + buyerId)).thenReturn(true);
@@ -96,7 +96,7 @@ class ChatRoomServiceTest {
         Long sellerId = 2L;
         Long productId = 100L;
 
-        when(memberRepository.existsById(sellerId)).thenReturn(true);
+        when(memberQueryService.existsById(sellerId)).thenReturn(true);
         when(productCatalogReader.getProductSeller(productId))
                 .thenReturn(new ProductSellerSnapshot(productId, sellerId));
 
@@ -115,7 +115,7 @@ class ChatRoomServiceTest {
         Long productId = 100L;
         ChatRoom newRoom = ChatRoom.product(buyerId, sellerId);
 
-        when(memberRepository.existsById(buyerId)).thenReturn(true);
+        when(memberQueryService.existsById(buyerId)).thenReturn(true);
         when(productCatalogReader.getProductSeller(productId))
                 .thenReturn(new ProductSellerSnapshot(productId, sellerId));
         when(lockManager.tryLock("lock:chatroom:product:" + sellerId + ":" + buyerId)).thenReturn(true);
@@ -137,7 +137,7 @@ class ChatRoomServiceTest {
     void createCsRoom_rejectsWhenMemberAlreadyHasActiveCsRoom() {
         Long memberId = 1L;
 
-        when(memberRepository.existsById(memberId)).thenReturn(true);
+        when(memberQueryService.existsById(memberId)).thenReturn(true);
         when(lockManager.tryLock("lock:chatroom:cs:member:" + memberId)).thenReturn(true);
         when(chatRoomRepository.existsByRoomTypeAndCreatedByMemberIdAndCsStatusIn(
                 ChatRoomType.CS,
@@ -159,7 +159,7 @@ class ChatRoomServiceTest {
         Long chatRoomId = 10L;
         ChatRoom waitingRoom = ChatRoom.cs(1L);
 
-        when(memberRepository.existsById(adminId)).thenReturn(true);
+        when(memberQueryService.existsById(adminId)).thenReturn(true);
         when(chatRoomRepository.findByIdAndRoomTypeWithLock(chatRoomId, ChatRoomType.CS))
                 .thenReturn(Optional.of(waitingRoom));
 

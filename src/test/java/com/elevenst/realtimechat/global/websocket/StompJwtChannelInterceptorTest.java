@@ -3,10 +3,11 @@ package com.elevenst.realtimechat.global.websocket;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.verify;
 
+import com.elevenst.realtimechat.domain.chatroom.exception.ChatRoomErrorCode;
 import com.elevenst.realtimechat.domain.chatroom.exception.ChatRoomException;
-import com.elevenst.realtimechat.domain.chatroom.repository.ChatRoomParticipantRepository;
 import com.elevenst.realtimechat.global.security.JwtTokenProvider;
 import com.elevenst.realtimechat.global.security.token.AccessTokenBlacklist;
 import com.elevenst.realtimechat.global.security.token.TokenClaims;
@@ -43,7 +44,7 @@ class StompJwtChannelInterceptorTest {
     private TokenInvalidationRegistry tokenInvalidationRegistry;
 
     @Mock
-    private ChatRoomParticipantRepository participantRepository;
+    private com.elevenst.realtimechat.domain.chatroom.service.ChatRoomService chatRoomService;
 
     private StompJwtChannelInterceptor interceptor;
 
@@ -53,7 +54,7 @@ class StompJwtChannelInterceptorTest {
                 jwtTokenProvider,
                 accessTokenBlacklist,
                 tokenInvalidationRegistry,
-                participantRepository
+                chatRoomService
         );
     }
 
@@ -139,8 +140,8 @@ class StompJwtChannelInterceptorTest {
     void subscribe_rejectsNonParticipantChatRoomTopic() {
         // given
         givenValidAccessToken();
-        given(participantRepository.existsByChatRoomIdAndMemberIdAndLeftAtIsNull(10L, 1L))
-                .willReturn(false);
+        willThrow(new ChatRoomException(ChatRoomErrorCode.ACCESS_DENIED))
+                .given(chatRoomService).validateParticipantExistence(10L, 1L);
         StompHeaderAccessor accessor = accessor(StompCommand.SUBSCRIBE);
         accessor.setDestination("/topic/chatrooms/10");
         accessor.getSessionAttributes().put("accessToken", TOKEN);

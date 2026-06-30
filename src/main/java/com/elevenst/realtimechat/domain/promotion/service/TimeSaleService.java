@@ -1,7 +1,6 @@
 package com.elevenst.realtimechat.domain.promotion.service;
 
 import com.elevenst.realtimechat.domain.product.entity.Product;
-import com.elevenst.realtimechat.domain.product.repository.ProductRepository;
 import com.elevenst.realtimechat.domain.promotion.dto.TimeSaleCreateRequest;
 import com.elevenst.realtimechat.domain.promotion.dto.TimeSaleResponse;
 import com.elevenst.realtimechat.domain.promotion.dto.TimeSaleUpdateRequest;
@@ -27,17 +26,9 @@ public class TimeSaleService {
 
     private final TimeSaleRepository timeSaleRepository;
     private final TimeSaleStockRepository timeSaleStockRepository;
-    private final ProductRepository productRepository;
 
     @Transactional
-    public TimeSaleResponse createTimeSale(Long sellerId, TimeSaleCreateRequest request) {
-        Product product = productRepository.findById(request.productId())
-                .orElseThrow(() -> new BusinessException(CommonErrorCode.INVALID_REQUEST, "상품이 존재하지 않습니다."));
-
-        if (!product.getSellerId().equals(sellerId)) {
-            throw new TimeSaleException(TimeSaleErrorCode.UNAUTHORIZED_OWNER);
-        }
-
+    public TimeSaleResponse createTimeSale(Product product, TimeSaleCreateRequest request) {
         TimeSale timeSale = new TimeSale(
                 product,
                 request.salePrice(),

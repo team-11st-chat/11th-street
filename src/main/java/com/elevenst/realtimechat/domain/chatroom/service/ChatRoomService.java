@@ -11,7 +11,7 @@ import com.elevenst.realtimechat.domain.chatroom.exception.ChatRoomException;
 import com.elevenst.realtimechat.domain.chatroom.repository.ChatRoomParticipantRepository;
 import com.elevenst.realtimechat.domain.chatroom.repository.ChatRoomRepository;
 import com.elevenst.realtimechat.domain.member.entity.MemberRole;
-import com.elevenst.realtimechat.domain.member.repository.MemberRepository;
+import com.elevenst.realtimechat.domain.member.service.MemberQueryService;
 import com.elevenst.realtimechat.domain.message.dto.ChatMessageHistoryResponse;
 import com.elevenst.realtimechat.domain.message.service.ChatMessageService;
 import com.elevenst.realtimechat.global.support.LockManager;
@@ -30,7 +30,7 @@ public class ChatRoomService {
 
     private final ChatRoomRepository chatRoomRepository;
     private final ChatRoomParticipantRepository participantRepository;
-    private final MemberRepository memberRepository;
+    private final MemberQueryService memberQueryService;
     private final ChatRoomProductCatalogReader productCatalogReader;
     private final ChatMessageService chatMessageService;
     private final LockManager lockManager;
@@ -223,8 +223,15 @@ public class ChatRoomService {
     }
 
     private void validateMemberExists(Long memberId) {
-        if (!memberRepository.existsById(memberId)) {
+        if (!memberQueryService.existsById(memberId)) {
             throw new ChatRoomException(ChatRoomErrorCode.INVALID_MEMBER);
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public void validateParticipantExistence(Long chatRoomId, Long memberId) {
+        if (!participantRepository.existsByChatRoomIdAndMemberIdAndLeftAtIsNull(chatRoomId, memberId)) {
+            throw new ChatRoomException(ChatRoomErrorCode.ACCESS_DENIED);
         }
     }
 
