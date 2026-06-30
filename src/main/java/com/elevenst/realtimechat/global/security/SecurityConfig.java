@@ -1,6 +1,7 @@
 package com.elevenst.realtimechat.global.security;
 
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -12,11 +13,20 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.servlet.HandlerExceptionResolver;
+
+import java.util.Arrays;
+import java.util.List;
 
 @Configuration
 @EnableConfigurationProperties(JwtProperties.class)
 public class SecurityConfig {
+
+    @Value("${app.cors.allowed-origins:http://localhost:5173,http://127.0.0.1:5173}")
+    private String allowedOrigins;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -32,6 +42,7 @@ public class SecurityConfig {
         JwtAuthenticationFilter jwtAuthenticationFilter = new JwtAuthenticationFilter(jwtTokenValidator);
 
         http
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
@@ -44,6 +55,15 @@ public class SecurityConfig {
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/refresh",
                                 "/api/v1/auth/logout").permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/products",
+                                "/api/v1/products/*",
+                                "/api/v2/products",
+                                "/api/v1/popular-keywords",
+                                "/api/v1/timesales",
+                                "/api/v1/timesales/*",
+                                "/api/v1/coupons",
+                                "/api/v1/coupons/*").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/products").hasRole("SELLER")
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/products/*").hasRole("SELLER")
                         .requestMatchers("/ws").permitAll()
@@ -54,5 +74,26 @@ public class SecurityConfig {
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable);
         return http.build();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(parseAllowedOrigins());
+        configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Request-ID", "Request-Guest-ID"));
+        configuration.setExposedHeaders(List.of("Set-Cookie"));
+        configuration.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+
+    private List<String> parseAllowedOrigins() {
+        return Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(origin -> !origin.isBlank())
+                .toList();
     }
 }
