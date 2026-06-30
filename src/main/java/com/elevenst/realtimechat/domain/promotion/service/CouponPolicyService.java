@@ -7,6 +7,7 @@ import com.elevenst.realtimechat.domain.promotion.entity.CouponPolicy;
 import com.elevenst.realtimechat.domain.promotion.exception.CouponErrorCode;
 import com.elevenst.realtimechat.domain.promotion.exception.CouponException;
 import com.elevenst.realtimechat.domain.promotion.repository.CouponPolicyRepository;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +33,21 @@ public class CouponPolicyService {
         );
         couponPolicyRepository.save(couponPolicy);
 
+        return CouponPolicyResponse.from(couponPolicy);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CouponPolicyResponse> getCouponPolicies() {
+        return couponPolicyRepository.findAllByOrderByIdDesc()
+                .stream()
+                .map(CouponPolicyResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public CouponPolicyResponse getCouponPolicy(Long couponPolicyId) {
+        CouponPolicy couponPolicy = couponPolicyRepository.findById(couponPolicyId)
+                .orElseThrow(() -> new CouponException(CouponErrorCode.COUPON_POLICY_NOT_FOUND));
         return CouponPolicyResponse.from(couponPolicy);
     }
 

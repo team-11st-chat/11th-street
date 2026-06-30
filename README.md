@@ -91,6 +91,57 @@ curl.exe http://localhost:8080/health
 docker compose down
 ```
 
+## 프론트엔드 로컬 실행
+
+커머스 프론트엔드는 `frontend/` 디렉터리에 있으며 Vite로 실행합니다.
+먼저 Spring Boot API 서버를 실행한 뒤 프론트엔드 개발 서버를 시작합니다.
+
+1. 프론트엔드 의존성을 설치합니다.
+
+```powershell
+cd frontend
+npm install
+```
+
+2. 백엔드 API URL을 설정합니다.
+
+```powershell
+Copy-Item .env.example .env
+```
+
+기본 API 주소는 `http://localhost:8080`입니다.
+백엔드를 다른 주소에서 실행하는 경우 `frontend/.env`의 `VITE_API_BASE_URL` 값을 변경합니다.
+
+3. 프론트엔드 개발 서버를 실행합니다.
+
+```powershell
+npm run dev
+```
+
+4. 브라우저에서 앱을 엽니다.
+
+```text
+http://localhost:5173
+```
+
+프론트엔드에서 확인할 수 있는 주요 흐름은 다음과 같습니다.
+
+- 실제 상품 API 기반 상품 목록/검색
+- 상품 검색 후 인기 검색어 갱신
+- 타임세일 목록 조회와 주문 요청
+- 쿠폰 정책 선택과 쿠폰 발급 요청
+- 상품/CS 문의방과 STOMP 실시간 채팅
+- SELLER, SUPER_ADMIN 백오피스 진입점
+
+프론트엔드 변경을 커밋하기 전에는 다음 검증을 실행합니다.
+
+```powershell
+cd frontend
+npm run build
+```
+
+`node_modules`, `dist`, `.vite`, `*.tsbuildinfo` 같은 생성물은 커밋하지 않습니다.
+
 ## 테스트 실행
 
 일반 테스트는 `integration` 태그를 제외하고 실행됩니다.
