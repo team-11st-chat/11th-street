@@ -10,14 +10,14 @@ APP_DIR="/opt/11th-street"
 PARAMETER_PREFIX="/11th-street/prod"
 CONTAINER_NAME="11th-street-app"
 ENV_FILE="${APP_DIR}/.env.runtime"
-HEALTHCHECK_ATTEMPTS=3
+HEALTHCHECK_ATTEMPTS=10
 HEALTHCHECK_INTERVAL_SECONDS=10
 
 ECR_URI="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}"
 TARGET_IMAGE="${ECR_URI}:${IMAGE_TAG}"
 
 dnf update -y
-dnf install -y docker awscli python3 curl
+dnf install -y docker awscli python3
 dnf install -y redis6 || dnf install -y redis
 systemctl enable --now docker
 
@@ -105,14 +105,6 @@ get_healthcheck_url() {
   echo "http://localhost:$(get_server_port)/health"
 }
 
-get_running_container_image() {
-  if ! docker inspect "${CONTAINER_NAME}" >/dev/null 2>&1; then
-    return 0
-  fi
-
-  docker inspect --format '{{.Config.Image}}' "${CONTAINER_NAME}"
-}
-
 run_app_container() {
   local image="$1"
 
@@ -136,30 +128,18 @@ wait_for_health() {
     fi
 
     echo "Health check attempt ${attempt}/${HEALTHCHECK_ATTEMPTS} failed."
-    sleep "${HEALTHCHECK_INTERVAL_SECONDS}"
+
+    if [ "${attempt}" -lt "${HEALTHCHECK_ATTEMPTS}" ]; then
+      sleep "${HEALTHCHECK_INTERVAL_SECONDS}"
+    fi
   done
 
   return 1
 }
 
-rollback_container() {
-  local previous_image="$1"
-
-  if [ -z "${previous_image}" ]; then
-    echo "Rollback skipped because no previous container image was found."
-    return 1
-  fi
-
-  echo "Rolling back to previous container image."
-  run_app_container "${previous_image}"
-  wait_for_health
-}
-
 start_redis
 write_env_file
 chmod 600 "${ENV_FILE}"
-
-PREVIOUS_IMAGE=$(get_running_container_image)
 
 aws ecr get-login-password --region "${AWS_REGION}" | \
   docker login --username AWS --password-stdin \
@@ -174,5 +154,5 @@ if wait_for_health; then
   exit 0
 fi
 
-echo "Deployment health check failed. Starting rollback."
-rollback_container "${PREVIOUS_IMAGE}"
+echo "Deployment health check failed. Launch Template rollback will be handled by the deployment workflow."
+exit 1
