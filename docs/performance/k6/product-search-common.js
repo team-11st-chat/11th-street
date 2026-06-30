@@ -229,7 +229,7 @@ function markdownSummary(apiVersion, metrics) {
     '',
     '## Saturation Notes',
     '',
-    '- Treat rising p95/p99, non-zero dropped iterations, or increasing failure rate at higher VU stages as saturation signals.',
+    '- Treat rising p95/p99 or increasing failure rate at higher VU stages as saturation signals. (Note: dropped iterations is always 0 since ramping-vus is a closed model).',
     '- Compare v1 and v2 only when they use the same keyword, category, page, size, data volume, stage profile, and load generator host.',
     '',
   ].join('\n');
