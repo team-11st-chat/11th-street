@@ -194,6 +194,7 @@ const errorMessageByServerMessage: Record<string, string> = {
   "종료 시각 변경은 연장만 가능합니다.": errorMessageByCode.EXTENSION_ONLY_ALLOWED,
   "타임세일 정보를 찾을 수 없습니다.": errorMessageByCode.TIME_SALE_NOT_FOUND,
   "해당 타임세일의 소유자가 아닙니다.": errorMessageByCode.UNAUTHORIZED_OWNER,
+  "해당 판매자의 상품이 아닙니다.": errorMessageByCode.UNAUTHORIZED_OWNER,
   "쿠폰을 발급할 수 있는 상태가 아닙니다.": errorMessageByCode.COUPON_001,
   "선착순 수량이 모두 소진되었습니다.": errorMessageByCode.COUPON_002,
   "이미 발급받았거나 중복 발급 요청입니다.": errorMessageByCode.COUPON_003,

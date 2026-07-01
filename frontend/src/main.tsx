@@ -1324,7 +1324,7 @@ function TimeSaleUpdatePanel({ setNotice }: { setNotice: (notice: string) => voi
     const originalPrice = Number(loadedSale.originalPrice);
     if (!Number.isFinite(nextSalePrice) || nextSalePrice < 100) return "특가는 100원 이상이어야 합니다.";
     if (nextSalePrice >= originalPrice) return "특가는 정상가보다 낮아야 합니다.";
-    const discountRate = Math.floor(((originalPrice - nextSalePrice) / originalPrice) * 100);
+    const discountRate = Math.floor(Math.round(((originalPrice - nextSalePrice) / originalPrice) * 100));
     if (discountRate < 5 || discountRate >= 100) return "할인율은 정상가 대비 최소 5% 이상, 100% 미만이어야 합니다.";
     if (!Number.isFinite(nextStartedAt) || nextEndedAt <= nextStartedAt) return "종료 시각은 시작 시각보다 이후여야 합니다.";
     if (!Number.isInteger(nextInitialQuantity) || nextInitialQuantity < 1) return "한정 판매 수량은 1개 이상 정수여야 합니다.";
