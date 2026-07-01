@@ -5,6 +5,7 @@ import {
   Headphones,
   Home,
   LogIn,
+  LogOut,
   MessageCircle,
   PackageSearch,
   Search,
@@ -31,12 +32,17 @@ import {
   getPopularKeywords,
   getProduct,
   getProductChatRooms,
+  getTimeSale,
   getTimeSales,
   issueCoupon,
   login,
+  logout,
   orderTimeSale,
   registerMember,
-  searchProducts
+  refreshToken,
+  searchProducts,
+  updateProduct,
+  updateTimeSale
 } from "./lib/api";
 import type {
   ChatMessage,
@@ -46,7 +52,10 @@ import type {
   PopularKeyword,
   Product,
   ProductDetail,
-  TimeSale
+  ProductUpdatePayload,
+  SaleStatus,
+  TimeSale,
+  TimeSaleUpdatePayload
 } from "./lib/api";
 import { categories } from "./lib/mock";
 import "./styles.css";
@@ -201,6 +210,7 @@ function App() {
   const [timeSales, setTimeSales] = useState<TimeSale[]>([]);
   const [timeSaleProducts, setTimeSaleProducts] = useState<Record<number, ProductDetail>>({});
   const [selectedProduct, setSelectedProduct] = useState<ProductDetail | null>(null);
+  const [session, setSession] = useState<Session>(() => getCurrentSession());
   const [status, setStatus] = useState("백엔드 연결 대기 중");
   const [notice, setNotice] = useState("Access Token은 메모리에만 보관합니다.");
   const commerceRequestSeq = useRef(0);
@@ -211,10 +221,29 @@ function App() {
   }, []);
 
   useEffect(() => {
+    void restoreSession();
+  }, []);
+
+  useEffect(() => {
     if (view === "timesale") {
       void loadTimeSaleData();
     }
   }, [view]);
+
+  async function restoreSession() {
+    if (getAccessToken()) {
+      setSession(getCurrentSession());
+      return;
+    }
+
+    try {
+      await refreshToken();
+      setSession(getCurrentSession());
+      setNotice("Refresh Token으로 로그인 상태를 복구했습니다.");
+    } catch {
+      setSession({ memberId: null, role: null });
+    }
+  }
 
   async function loadCommerceData(nextKeyword = keyword, nextCategory?: number) {
     const requestSeq = commerceRequestSeq.current + 1;
@@ -313,11 +342,24 @@ function App() {
     void loadCommerceData(keyword, selectedCategory);
   }
 
+  async function submitLogout() {
+    try {
+      await logout();
+      setSession({ memberId: null, role: null });
+      setSelectedProduct(null);
+      setNotice("로그아웃되었습니다.");
+      setView("home");
+    } catch (error) {
+      setSession({ memberId: null, role: null });
+      setNotice((error as Error).message);
+    }
+  }
+
   const visibleProducts = useMemo(
     () => products.filter((product) => product.saleStatus !== "SUSPENDED"),
     [products]
   );
-  const session = getCurrentSession();
+  const isAuthenticated = Boolean(session.role);
 
   return (
     <>
@@ -337,7 +379,11 @@ function App() {
           <button onClick={() => setView("coupon")}>쿠폰</button>
           <button onClick={() => setView("support")}>문의</button>
           <button onClick={() => setView("backoffice")}>백오피스</button>
-          <button onClick={() => setView("login")}>로그인</button>
+          {isAuthenticated ? (
+            <button onClick={() => void submitLogout()}>로그아웃</button>
+          ) : (
+            <button onClick={() => setView("login")}>로그인</button>
+          )}
         </nav>
         <button className="iconButton" aria-label="장바구니">
           <ShoppingCart size={20} />
@@ -358,7 +404,11 @@ function App() {
         <button onClick={() => setView("coupon")} className={view === "coupon" ? "active" : ""}><Gift size={18} /> 선착순 쿠폰</button>
         <button onClick={() => setView("support")} className={view === "support" ? "active" : ""}><MessageCircle size={18} /> 상품/CS 문의</button>
         <button onClick={() => setView("backoffice")} className={view === "backoffice" ? "active" : ""}><UserRound size={18} /> 백오피스</button>
-        <button onClick={() => setView("login")} className={view === "login" ? "active" : ""}><LogIn size={18} /> 로그인</button>
+        {isAuthenticated ? (
+          <button onClick={() => void submitLogout()}><LogOut size={18} /> 로그아웃</button>
+        ) : (
+          <button onClick={() => setView("login")} className={view === "login" ? "active" : ""}><LogIn size={18} /> 로그인</button>
+        )}
       </aside>
 
       <main className="shell">
@@ -409,7 +459,16 @@ function App() {
         {view === "coupon" && <CouponView setNotice={setNotice} />}
         {view === "support" && <SupportView setNotice={setNotice} />}
         {view === "backoffice" && <BackOfficeView session={session} setNotice={setNotice} />}
-        {view === "login" && <LoginView notice={notice} setNotice={setNotice} />}
+        {view === "login" && (
+          <LoginView
+            notice={notice}
+            setNotice={setNotice}
+            onAuthenticated={() => {
+              setSession(getCurrentSession());
+              setView("home");
+            }}
+          />
+        )}
       </main>
     </>
   );
@@ -915,23 +974,25 @@ function SupportView({ setNotice }: { setNotice: (notice: string) => void }) {
 function BackOfficeView({ session, setNotice }: { session: Session; setNotice: (notice: string) => void }) {
   const isSeller = session.role === "SELLER";
   const isSuperAdmin = session.role === "SUPER_ADMIN";
+  const isCsAdmin = session.role === "CS_ADMIN";
+  const canManageCs = isCsAdmin || isSuperAdmin;
 
   if (!getAccessToken()) {
     return (
       <section className="authPanel">
         <span className="eyebrow"><UserRound size={16} /> 백오피스</span>
         <h1>로그인이 필요합니다</h1>
-        <p>SELLER 또는 SUPER_ADMIN 권한의 계정으로 로그인하면 운영 기능을 사용할 수 있습니다.</p>
+        <p>SELLER, CS_ADMIN 또는 SUPER_ADMIN 권한의 계정으로 로그인하면 운영 기능을 사용할 수 있습니다.</p>
       </section>
     );
   }
 
-  if (!isSeller && !isSuperAdmin) {
+  if (!isSeller && !canManageCs) {
     return (
       <section className="authPanel">
         <span className="eyebrow"><UserRound size={16} /> 백오피스</span>
         <h1>권한이 없습니다</h1>
-        <p>현재 역할은 {session.role ?? "UNKNOWN"}입니다. 상품/타임세일 운영은 SELLER, 쿠폰/CS 운영은 SUPER_ADMIN만 사용할 수 있습니다.</p>
+        <p>현재 역할은 {session.role ?? "UNKNOWN"}입니다. 상품/타임세일 운영은 SELLER, 쿠폰 운영은 SUPER_ADMIN, CS 운영은 CS_ADMIN 또는 SUPER_ADMIN만 사용할 수 있습니다.</p>
       </section>
     );
   }
@@ -949,7 +1010,9 @@ function BackOfficeView({ session, setNotice }: { session: Session; setNotice: (
       {isSeller && (
         <div className="backofficeGrid">
           <ProductCreatePanel setNotice={setNotice} />
+          <ProductUpdatePanel setNotice={setNotice} />
           <TimeSaleCreatePanel setNotice={setNotice} />
+          <TimeSaleUpdatePanel setNotice={setNotice} />
           <BackOfficeChatPanel
             title="내 상품 문의"
             description="판매자로 참여 중인 상품 문의방을 조회하고 응답합니다."
@@ -960,11 +1023,13 @@ function BackOfficeView({ session, setNotice }: { session: Session; setNotice: (
         </div>
       )}
 
-      {isSuperAdmin && (
+      {canManageCs && (
         <>
-          <div className="backofficeGrid">
-            <CouponPolicyCreatePanel setNotice={setNotice} />
-          </div>
+          {isSuperAdmin && (
+            <div className="backofficeGrid">
+              <CouponPolicyCreatePanel setNotice={setNotice} />
+            </div>
+          )}
           <BackOfficeChatPanel
             title="CS 문의"
             description="대기 중인 CS 문의를 접수하고 STOMP 채팅으로 응답합니다."
@@ -1034,6 +1099,126 @@ function ProductCreatePanel({ setNotice }: { setNotice: (notice: string) => void
   );
 }
 
+function ProductUpdatePanel({ setNotice }: { setNotice: (notice: string) => void }) {
+  const [productId, setProductId] = useState("");
+  const [name, setName] = useState("");
+  const [categoryId, setCategoryId] = useState(String(categories[0]?.id ?? 11));
+  const [price, setPrice] = useState("");
+  const [stockQuantity, setStockQuantity] = useState("");
+  const [saleStatus, setSaleStatus] = useState<SaleStatus>("ON_SALE");
+  const [loadedProduct, setLoadedProduct] = useState<ProductDetail | null>(null);
+  const [updatedProduct, setUpdatedProduct] = useState<ProductDetail | null>(null);
+
+  async function loadProduct(event: React.FormEvent) {
+    event.preventDefault();
+    try {
+      const product = await getProduct(Number(productId));
+      setLoadedProduct(product);
+      setUpdatedProduct(null);
+      setName(product.name);
+      setCategoryId(String(product.categoryId));
+      setPrice(String(Number(product.price)));
+      setStockQuantity(String(product.stockQuantity));
+      setSaleStatus(product.saleStatus);
+      setNotice(`상품 #${product.id} 조회 완료: ${product.name}`);
+    } catch (error) {
+      setLoadedProduct(null);
+      setUpdatedProduct(null);
+      setNotice((error as Error).message);
+    }
+  }
+
+  function validateUpdate() {
+    if (!loadedProduct) return "먼저 상품을 조회하세요.";
+    const nextName = name.trim();
+    const nextPrice = Number(price);
+    const nextStockQuantity = Number(stockQuantity);
+    if (!nextName || nextName.length > 100) return "상품명은 1자 이상 100자 이하로 입력하세요.";
+    if (!Number.isFinite(nextPrice) || nextPrice <= 0) return "상품 가격은 0보다 커야 합니다.";
+    if (!Number.isInteger(nextStockQuantity) || nextStockQuantity < 0) return "재고 수량은 0 이상 정수여야 합니다.";
+    if (saleStatus === "ON_SALE" && nextStockQuantity === 0) return "재고가 0개인 상품은 판매중으로 변경할 수 없습니다.";
+    return null;
+  }
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    const validationMessage = validateUpdate();
+    if (validationMessage) {
+      setNotice(validationMessage);
+      return;
+    }
+
+    if (!loadedProduct) return;
+
+    const payload: ProductUpdatePayload = {
+      name: name.trim(),
+      categoryId: Number(categoryId),
+      price: Number(price),
+      stockQuantity: Number(stockQuantity),
+      saleStatus
+    };
+
+    try {
+      const product = await updateProduct(loadedProduct.id, payload);
+      setLoadedProduct(product);
+      setUpdatedProduct(product);
+      setName(product.name);
+      setCategoryId(String(product.categoryId));
+      setPrice(String(Number(product.price)));
+      setStockQuantity(String(product.stockQuantity));
+      setSaleStatus(product.saleStatus);
+      setNotice(`상품 #${product.id} 수정 완료: ${product.saleStatus}`);
+    } catch (error) {
+      setNotice((error as Error).message);
+    }
+  }
+
+  return (
+    <section className="backofficePanel">
+      <div className="sectionTitle">
+        <div>
+          <h2>상품 수정</h2>
+          <p>SELLER 권한으로 상품 정보, 재고, 판매 상태를 수정합니다.</p>
+        </div>
+      </div>
+      <form className="officeForm" onSubmit={loadProduct}>
+        <label>상품 ID<input value={productId} onChange={(event) => setProductId(event.target.value)} inputMode="numeric" required /></label>
+        <button className="secondary full" type="submit">상품 불러오기</button>
+      </form>
+      {loadedProduct && (
+        <form className="officeForm" onSubmit={submit}>
+          <label>상품명<input value={name} onChange={(event) => setName(event.target.value)} maxLength={100} required /></label>
+          <label>
+            카테고리
+            <select value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>{category.parent} · {category.name}</option>
+              ))}
+            </select>
+          </label>
+          <label>가격<input value={price} onChange={(event) => setPrice(event.target.value)} inputMode="numeric" required /></label>
+          <label>재고<input value={stockQuantity} onChange={(event) => setStockQuantity(event.target.value)} inputMode="numeric" required /></label>
+          <label>
+            판매 상태
+            <select value={saleStatus} onChange={(event) => setSaleStatus(event.target.value as SaleStatus)}>
+              <option value="ON_SALE">판매중</option>
+              <option value="SOLD_OUT">품절</option>
+              <option value="SUSPENDED">판매중지</option>
+            </select>
+          </label>
+          <button className="primary full" type="submit"><PackageSearch size={18} /> 상품 수정</button>
+        </form>
+      )}
+      {updatedProduct && (
+        <div className="officeResult">
+          <strong>#{updatedProduct.id} {updatedProduct.name}</strong>
+          <span>카테고리 #{updatedProduct.categoryId} · 재고 {money.format(updatedProduct.stockQuantity)}개 · {updatedProduct.saleStatus}</span>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function TimeSaleCreatePanel({ setNotice }: { setNotice: (notice: string) => void }) {
   const now = useMemo(() => new Date(), []);
   const defaultEnd = useMemo(() => new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000), [now]);
@@ -1081,6 +1266,135 @@ function TimeSaleCreatePanel({ setNotice }: { setNotice: (notice: string) => voi
         <div className="officeResult">
           <strong>타임세일 #{createdSale.id}</strong>
           <span>상품 #{createdSale.productId} · {money.format(Number(createdSale.salePrice))}원 · {createdSale.status}</span>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function TimeSaleUpdatePanel({ setNotice }: { setNotice: (notice: string) => void }) {
+  const [timeSaleId, setTimeSaleId] = useState("");
+  const [salePrice, setSalePrice] = useState("");
+  const [startedAt, setStartedAt] = useState("");
+  const [endedAt, setEndedAt] = useState("");
+  const [initialQuantity, setInitialQuantity] = useState("");
+  const [loadedSale, setLoadedSale] = useState<TimeSale | null>(null);
+  const [updatedSale, setUpdatedSale] = useState<TimeSale | null>(null);
+
+  const isScheduled = loadedSale?.status === "SCHEDULED";
+  const isOngoing = loadedSale?.status === "ONGOING";
+  const isEnded = loadedSale?.status === "ENDED";
+  const canSubmit = Boolean(loadedSale && !isEnded);
+
+  async function loadSale(event: React.FormEvent) {
+    event.preventDefault();
+    try {
+      const sale = await getTimeSale(Number(timeSaleId));
+      setLoadedSale(sale);
+      setUpdatedSale(null);
+      setSalePrice(String(Number(sale.salePrice)));
+      setStartedAt(toDatetimeLocal(new Date(sale.startedAt)));
+      setEndedAt(toDatetimeLocal(new Date(sale.endedAt)));
+      setInitialQuantity(String(sale.remainingQuantity));
+      setNotice(`타임세일 #${sale.id} 조회 완료: ${sale.status}`);
+    } catch (error) {
+      setLoadedSale(null);
+      setUpdatedSale(null);
+      setNotice((error as Error).message);
+    }
+  }
+
+  function validateUpdate() {
+    if (!loadedSale) return "먼저 타임세일을 조회하세요.";
+    if (isEnded) return "종료된 타임세일은 수정할 수 없습니다.";
+
+    const nextStartedAt = new Date(startedAt).getTime();
+    const nextEndedAt = new Date(endedAt).getTime();
+    if (!Number.isFinite(nextEndedAt)) return "종료 시각을 입력하세요.";
+
+    if (isOngoing) {
+      if (nextEndedAt <= new Date(loadedSale.endedAt).getTime()) {
+        return "진행 중인 타임세일은 기존 종료 시각보다 뒤로만 연장할 수 있습니다.";
+      }
+      return null;
+    }
+
+    const nextSalePrice = Number(salePrice);
+    const nextInitialQuantity = Number(initialQuantity);
+    const originalPrice = Number(loadedSale.originalPrice);
+    if (!Number.isFinite(nextSalePrice) || nextSalePrice < 100) return "특가는 100원 이상이어야 합니다.";
+    if (nextSalePrice >= originalPrice) return "특가는 정상가보다 낮아야 합니다.";
+    const discountRate = Math.floor(Math.round(((originalPrice - nextSalePrice) / originalPrice) * 100));
+    if (discountRate < 5 || discountRate >= 100) return "할인율은 정상가 대비 최소 5% 이상, 100% 미만이어야 합니다.";
+    if (!Number.isFinite(nextStartedAt) || nextEndedAt <= nextStartedAt) return "종료 시각은 시작 시각보다 이후여야 합니다.";
+    if (!Number.isInteger(nextInitialQuantity) || nextInitialQuantity < 1) return "한정 판매 수량은 1개 이상 정수여야 합니다.";
+    return null;
+  }
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    const validationMessage = validateUpdate();
+    if (validationMessage) {
+      setNotice(validationMessage);
+      return;
+    }
+
+    if (!loadedSale) return;
+
+    const payload: TimeSaleUpdatePayload = isOngoing
+      ? { endedAt }
+      : {
+          salePrice: Number(salePrice),
+          startedAt,
+          endedAt,
+          initialQuantity: Number(initialQuantity)
+        };
+
+    try {
+      const sale = await updateTimeSale(loadedSale.id, payload);
+      setLoadedSale(sale);
+      setUpdatedSale(sale);
+      setSalePrice(String(Number(sale.salePrice)));
+      setStartedAt(toDatetimeLocal(new Date(sale.startedAt)));
+      setEndedAt(toDatetimeLocal(new Date(sale.endedAt)));
+      setInitialQuantity(String(sale.remainingQuantity));
+      setNotice(`타임세일 #${sale.id} 수정 완료: ${sale.status}`);
+    } catch (error) {
+      setNotice((error as Error).message);
+    }
+  }
+
+  return (
+    <section className="backofficePanel">
+      <div className="sectionTitle">
+        <div>
+          <h2>타임세일 수정</h2>
+          <p>예정 상태는 전체 수정, 진행 중에는 종료 시각 연장만 가능합니다.</p>
+        </div>
+      </div>
+      <form className="officeForm" onSubmit={loadSale}>
+        <label>타임세일 ID<input value={timeSaleId} onChange={(event) => setTimeSaleId(event.target.value)} inputMode="numeric" required /></label>
+        <button className="secondary full" type="submit">타임세일 불러오기</button>
+      </form>
+      {loadedSale && (
+        <form className="officeForm" onSubmit={submit}>
+          <label>특가<input value={salePrice} onChange={(event) => setSalePrice(event.target.value)} inputMode="numeric" disabled={!isScheduled} required /></label>
+          <label>시작 시각<input type="datetime-local" value={startedAt} onChange={(event) => setStartedAt(event.target.value)} disabled={!isScheduled} required /></label>
+          <label>종료 시각<input type="datetime-local" value={endedAt} onChange={(event) => setEndedAt(event.target.value)} disabled={isEnded} required /></label>
+          <label>한정 수량<input value={initialQuantity} onChange={(event) => setInitialQuantity(event.target.value)} inputMode="numeric" disabled={!isScheduled} required /></label>
+          <button className="primary full" type="submit" disabled={!canSubmit}><Timer size={18} /> 타임세일 수정</button>
+        </form>
+      )}
+      {loadedSale && (
+        <div className="officeResult">
+          <strong>타임세일 #{loadedSale.id} · {loadedSale.status}</strong>
+          <span>상품 #{loadedSale.productId} · 정상가 {money.format(Number(loadedSale.originalPrice))}원 · 특가 {money.format(Number(loadedSale.salePrice))}원</span>
+        </div>
+      )}
+      {updatedSale && (
+        <div className="officeResult">
+          <strong>수정 반영 완료</strong>
+          <span>{kst.format(new Date(updatedSale.startedAt))} - {kst.format(new Date(updatedSale.endedAt))} · 잔여 {money.format(updatedSale.remainingQuantity)}개</span>
         </div>
       )}
     </section>
@@ -1407,7 +1721,15 @@ function BackOfficeChatPanel({
   );
 }
 
-function LoginView({ notice, setNotice }: { notice: string; setNotice: (notice: string) => void }) {
+function LoginView({
+  notice,
+  setNotice,
+  onAuthenticated
+}: {
+  notice: string;
+  setNotice: (notice: string) => void;
+  onAuthenticated: () => void;
+}) {
   const [mode, setMode] = useState<"login" | "join">("login");
   const [name, setName] = useState("김구매");
   const [email, setEmail] = useState("buyer@11st.test");
@@ -1424,6 +1746,7 @@ function LoginView({ notice, setNotice }: { notice: string; setNotice: (notice: 
       }
       const result = await login(email, password);
       setNotice(`로그인 성공. Access Token ${result.expiresIn}초 유효.`);
+      onAuthenticated();
     } catch (error) {
       setNotice((error as Error).message);
     }

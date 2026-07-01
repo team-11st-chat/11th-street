@@ -35,6 +35,14 @@ export type ProductCreatePayload = {
   stockQuantity: number;
 };
 
+export type ProductUpdatePayload = {
+  name?: string;
+  categoryId?: number;
+  price?: number;
+  stockQuantity?: number;
+  saleStatus?: SaleStatus;
+};
+
 export type TimeSale = {
   id: number;
   productId: number;
@@ -52,6 +60,13 @@ export type TimeSaleCreatePayload = {
   startedAt: string;
   endedAt: string;
   initialQuantity: number;
+};
+
+export type TimeSaleUpdatePayload = {
+  salePrice?: number;
+  startedAt?: string;
+  endedAt?: string;
+  initialQuantity?: number;
 };
 
 export type TimeSaleOrder = {
@@ -142,6 +157,57 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080
 
 let accessToken: string | null = null;
 
+const errorMessageByCode: Record<string, string> = {
+  TIME_SALE_001: "타임세일 판매 시간이 아닙니다. 시작 전이거나 이미 종료된 상품입니다.",
+  TIME_SALE_002: "타임세일 수량이 모두 소진되었습니다.",
+  TIME_SALE_003: "이미 구매했거나 같은 주문이 처리 중입니다.",
+  INVALID_DISCOUNT_RATE: "타임세일 할인율은 정상가 대비 최소 5% 이상, 100% 미만이어야 합니다.",
+  INVALID_SALE_PRICE: "타임세일 특가는 정상가보다 낮고 100원 이상이어야 합니다.",
+  INVALID_SALE_PERIOD: "타임세일 종료 시각은 시작 시각보다 이후여야 합니다.",
+  INVALID_QUANTITY: "타임세일 한정 판매 수량은 1개 이상이어야 합니다.",
+  MODIFICATION_NOT_ALLOWED: "이 타임세일은 현재 상태에서 수정할 수 없습니다.",
+  EXTENSION_ONLY_ALLOWED: "진행 중인 타임세일은 종료 시각을 뒤로 연장하는 수정만 가능합니다.",
+  TIME_SALE_NOT_FOUND: "타임세일 정보를 찾을 수 없습니다.",
+  UNAUTHORIZED_OWNER: "본인 소유 상품 또는 타임세일만 수정할 수 있습니다.",
+  COUPON_001: "쿠폰 발급 기간이 아니거나 발급 가능한 상태가 아닙니다.",
+  COUPON_002: "선착순 쿠폰 수량이 모두 소진되었습니다.",
+  COUPON_003: "이미 발급받았거나 같은 쿠폰 발급 요청이 처리 중입니다.",
+  INVALID_COUPON_NAME: "쿠폰명을 확인하세요.",
+  INVALID_DISCOUNT_TYPE: "쿠폰 할인 방식을 확인하세요.",
+  INVALID_DISCOUNT_VALUE: "쿠폰 할인 값은 정책에 맞는 금액 또는 비율이어야 합니다.",
+  INVALID_MAX_DISCOUNT_AMOUNT: "최대 할인 금액을 확인하세요.",
+  INVALID_ISSUE_PERIOD: "쿠폰 발급 종료 시각은 시작 시각보다 이후여야 합니다.",
+  INVALID_TOTAL_QUANTITY: "선착순 쿠폰 총 수량은 1개 이상이어야 합니다.",
+  COUPON_POLICY_NOT_FOUND: "쿠폰 정책을 찾을 수 없습니다.",
+  UNAUTHORIZED_ADMIN: "쿠폰 정책은 SUPER_ADMIN 권한으로만 만들 수 있습니다."
+};
+
+const errorMessageByServerMessage: Record<string, string> = {
+  "판매 기간 외 요청입니다.": errorMessageByCode.TIME_SALE_001,
+  "타임세일 한정 판매 수량이 모두 소진되었습니다.": errorMessageByCode.TIME_SALE_002,
+  "이미 구매했거나 중복 주문 요청입니다.": errorMessageByCode.TIME_SALE_003,
+  "타임세일 할인율은 정상가 대비 최소 5% 이상, 100% 미만이어야 합니다.": errorMessageByCode.INVALID_DISCOUNT_RATE,
+  "타임세일 특가는 정상가보다 낮아야 하며, 최소 100원 이상이어야 합니다.": errorMessageByCode.INVALID_SALE_PRICE,
+  "종료 시각은 시작 시각보다 이후여야 합니다.": errorMessageByCode.INVALID_SALE_PERIOD,
+  "한정 판매 수량은 1개 이상이어야 합니다.": errorMessageByCode.INVALID_QUANTITY,
+  "판매 시작 이후에는 수정할 수 없습니다.": errorMessageByCode.MODIFICATION_NOT_ALLOWED,
+  "종료 시각 변경은 연장만 가능합니다.": errorMessageByCode.EXTENSION_ONLY_ALLOWED,
+  "타임세일 정보를 찾을 수 없습니다.": errorMessageByCode.TIME_SALE_NOT_FOUND,
+  "해당 타임세일의 소유자가 아닙니다.": errorMessageByCode.UNAUTHORIZED_OWNER,
+  "해당 판매자의 상품이 아닙니다.": errorMessageByCode.UNAUTHORIZED_OWNER,
+  "쿠폰을 발급할 수 있는 상태가 아닙니다.": errorMessageByCode.COUPON_001,
+  "선착순 수량이 모두 소진되었습니다.": errorMessageByCode.COUPON_002,
+  "이미 발급받았거나 중복 발급 요청입니다.": errorMessageByCode.COUPON_003,
+  "쿠폰명이 올바르지 않습니다.": errorMessageByCode.INVALID_COUPON_NAME,
+  "할인 방식이 올바르지 않습니다.": errorMessageByCode.INVALID_DISCOUNT_TYPE,
+  "할인 값이 올바르지 않습니다.": errorMessageByCode.INVALID_DISCOUNT_VALUE,
+  "최대 할인 금액이 올바르지 않습니다.": errorMessageByCode.INVALID_MAX_DISCOUNT_AMOUNT,
+  "발급 종료 시각은 시작 시각보다 이후여야 합니다.": errorMessageByCode.INVALID_ISSUE_PERIOD,
+  "선착순 총 수량은 1개 이상이어야 합니다.": errorMessageByCode.INVALID_TOTAL_QUANTITY,
+  "쿠폰 정책을 찾을 수 없습니다.": errorMessageByCode.COUPON_POLICY_NOT_FOUND,
+  "쿠폰 정책은 SUPER_ADMIN 만 등록할 수 있습니다.": errorMessageByCode.UNAUTHORIZED_ADMIN
+};
+
 export function setAccessToken(token: string | null) {
   accessToken = token;
 }
@@ -152,6 +218,14 @@ export function getAccessToken() {
 
 export function getApiBaseUrl() {
   return API_BASE_URL;
+}
+
+function resolveErrorMessage(body: ApiResponse<unknown> | null, status: number) {
+  const codeMessage = body?.code ? errorMessageByCode[body.code] : undefined;
+  const serverMessage = body?.message;
+  const mappedServerMessage = serverMessage ? errorMessageByServerMessage[serverMessage] : undefined;
+
+  return codeMessage ?? mappedServerMessage ?? serverMessage ?? `요청 실패 (${status})`;
 }
 
 export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -171,8 +245,7 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   const body = (await response.json().catch(() => null)) as ApiResponse<T> | null;
 
   if (!response.ok) {
-    const message = body?.message ?? `요청 실패 (${response.status})`;
-    throw new Error(body?.code ? `${body.code}: ${message}` : message);
+    throw new Error(resolveErrorMessage(body, response.status));
   }
   return body?.data as T;
 }
@@ -199,6 +272,14 @@ export async function refreshToken() {
   return data;
 }
 
+export async function logout() {
+  try {
+    await request<void>("/api/v1/auth/logout", { method: "POST" });
+  } finally {
+    setAccessToken(null);
+  }
+}
+
 export async function searchProducts(keyword: string, categoryId?: number, useCache = true) {
   const params = new URLSearchParams({ page: "0", size: "60" });
   if (keyword.trim()) params.set("keyword", keyword.trim());
@@ -219,6 +300,13 @@ export async function createProduct(payload: ProductCreatePayload) {
   });
 }
 
+export async function updateProduct(productId: number, payload: ProductUpdatePayload) {
+  return request<ProductDetail>(`/api/v1/products/${productId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+}
+
 export async function getPopularKeywords() {
   return request<PopularKeyword[]>("/api/v1/popular-keywords");
 }
@@ -226,6 +314,10 @@ export async function getPopularKeywords() {
 export async function getTimeSales() {
   const data = await request<TimeSale[] | { content: TimeSale[] }>("/api/v1/timesales?page=0&size=20");
   return Array.isArray(data) ? data : data.content;
+}
+
+export async function getTimeSale(timeSaleId: number) {
+  return request<TimeSale>(`/api/v1/timesales/${timeSaleId}`);
 }
 
 export async function orderTimeSale(timeSaleId: number) {
@@ -239,6 +331,13 @@ export async function orderTimeSale(timeSaleId: number) {
 export async function createTimeSale(payload: TimeSaleCreatePayload) {
   return request<TimeSale>("/api/v1/timesales", {
     method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function updateTimeSale(timeSaleId: number, payload: TimeSaleUpdatePayload) {
+  return request<TimeSale>(`/api/v1/timesales/${timeSaleId}`, {
+    method: "PATCH",
     body: JSON.stringify(payload)
   });
 }
