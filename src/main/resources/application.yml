@@ -1,18 +1,81 @@
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: ${SERVER_SHUTDOWN:graceful}
+
 spring:
   application:
     name: 11th-street
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+
   datasource:
-    url: ${MYSQL_URL:jdbc:mysql://localhost:3306/realtime_chat}
-    username: ${MYSQL_USER:realtime_chat}
-    password: ${MYSQL_PASSWORD:realtime_chat}
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+
   jpa:
     hibernate:
-      ddl-auto: validate
-    open-in-view: false
+      ddl-auto: ${JPA_DDL_AUTO:validate}
+    open-in-view: ${JPA_OPEN_IN_VIEW:false}
 
-server:
-  shutdown: graceful
+  flyway:
+    enabled: ${FLYWAY_ENABLED:true}
+    locations: ${FLYWAY_LOCATIONS:classpath:db/migration}
+    validate-on-migrate: ${FLYWAY_VALIDATE_ON_MIGRATE:true}
+
+management:
+  endpoints:
+    web:
+      base-path: /
+      exposure:
+        include: health,metrics
+      path-mapping:
+        health: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,db,redis
+        liveness:
+          include: livenessState
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  level:
+    com.elevenst.realtimechat: ${APP_LOG_LEVEL:INFO}
+  pattern:
+    level: "%5p [requestId:%X{requestId}]"
+
+jwt:
+  secret: ${JWT_SECRET}
+  access-token-validity-seconds: ${JWT_ACCESS_TOKEN_VALIDITY_SECONDS}
+  refresh-token-validity-seconds: ${JWT_REFRESH_TOKEN_VALIDITY_SECONDS}
+
+app:
+  lock:
+    default-wait-seconds: ${LOCK_DEFAULT_WAIT_SECONDS:3}
+    default-lease-seconds: ${LOCK_DEFAULT_LEASE_SECONDS:5}
+  idempotency:
+    request-id-ttl-seconds: ${IDEMPOTENCY_REQUEST_ID_TTL_SECONDS:10}
+  cache:
+    product-search:
+      mode: ${PRODUCT_SEARCH_CACHE_MODE:LOCAL}
+    caffeine:
+      product-search-ttl: ${CAFFEINE_PRODUCT_SEARCH_TTL:10m}
+      popular-keywords-ttl: ${CAFFEINE_POPULAR_KEYWORDS_TTL:1m}
+      product-search-maximum-size: ${CAFFEINE_PRODUCT_SEARCH_MAXIMUM_SIZE:10000}
+    redis:
+      default-ttl: ${REDIS_DEFAULT_CACHE_TTL:10m}
+  redis:
+    key-prefix:
+      cache: "${REDIS_CACHE_KEY_PREFIX:cache:v1:}"
+      lock: "${REDIS_LOCK_KEY_PREFIX:lock:}"

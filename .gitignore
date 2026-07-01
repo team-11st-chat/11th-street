@@ -1,12 +1,22 @@
 .agents/
 .idea/
 _workspace/
+.claude/
 
 .gradle/
 build/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/*.tsbuildinfo
 out/
 
 *.iml
 
+AGENTS.md
+
 .env
-application-local.yml
+.env.*
+!.env.example
+
+/wiki/

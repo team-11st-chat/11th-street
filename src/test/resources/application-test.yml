@@ -1,0 +1,38 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  flyway:
+    enabled: false
+    locations: classpath:db/migration
+    validate-on-migrate: false
+  jpa:
+    hibernate:
+      ddl-auto: create
+    open-in-view: false
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      repositories:
+        enabled: false
+
+jwt:
+  secret: test-secret-key-must-be-at-least-32-bytes-long
+  access-token-validity-seconds: 3600
+  refresh-token-validity-seconds: 1209600
+  refresh-cookie-secure: false
+
+server:
+  port: 0
+  shutdown: graceful
+
+app:
+  redis:
+    pubsub:
+      enabled: false
+    key-prefix:
+      cache: "test:cache:v1:"
+      lock: "test:lock:"

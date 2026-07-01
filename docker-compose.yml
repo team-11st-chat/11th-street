@@ -1,0 +1,74 @@
+name: 11th-street-local
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: 11th-street-app:local
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      DB_URL: jdbc:mysql://mysql:3306/realtime_chat?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
+      DB_USERNAME: realtime_chat
+      DB_PASSWORD: realtime_chat
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: local-secret-key-must-be-at-least-32-bytes-long
+      JWT_ACCESS_TOKEN_VALIDITY_SECONDS: 3600
+      JWT_REFRESH_TOKEN_VALIDITY_SECONDS: 1209600
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  mysql:
+    image: mysql:8.4
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+09:00
+    environment:
+      MYSQL_DATABASE: realtime_chat
+      MYSQL_USER: realtime_chat
+      MYSQL_PASSWORD: realtime_chat
+      MYSQL_ROOT_PASSWORD: realtime_chat_root
+      TZ: Asia/Seoul
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:8-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+networks:
+  default:
+    name: 11th-street-local-network
+
+volumes:
+  mysql-data:
+  redis-data:

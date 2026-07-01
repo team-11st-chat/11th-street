@@ -1,0 +1,6 @@
+spring:
+  flyway:
+    validate-on-migrate: true
+
+jwt:
+  refresh-cookie-secure: true

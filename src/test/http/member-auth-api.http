@@ -1,0 +1,177 @@
+### =====================================================================
+### 회원 / 인증 API 테스트 (이슈 #21)
+### IntelliJ HTTP Client 형식. 위에서부터 순서대로 실행하면 됩니다.
+### 애플리케이션 기동: ./gradlew bootRun  (기본 포트 8080)
+### =====================================================================
+
+@host = http://localhost:8080
+@email = buyer01@example.com
+@password = plainPassword1
+@name = 구매자01
+
+
+### 1. 회원가입 - 성공 (201 Created)
+# @name signup
+POST {{host}}/api/v1/members
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "name": "{{name}}"
+}
+
+> {%
+    client.test("201 Created", () => client.assert(response.status === 201, "status: " + response.status));
+    client.test("응답에 id 가 있다", () => client.assert(response.body.data.id !== null));
+    client.test("비밀번호가 응답에 없다", () => client.assert(response.body.data.password === undefined));
+%}
+
+
+### 2. 회원가입 - 이메일 중복 (409 Conflict)  [1번 실행 후]
+POST {{host}}/api/v1/members
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "name": "다른이름"
+}
+
+> {%
+    client.test("409 Conflict", () => client.assert(response.status === 409, "status: " + response.status));
+%}
+
+
+### 3. 회원가입 - 유효성 실패: 잘못된 이메일 형식 (400 Bad Request)
+POST {{host}}/api/v1/members
+Content-Type: application/json
+
+{
+  "email": "not-an-email",
+  "password": "{{password}}",
+  "name": "{{name}}"
+}
+
+> {%
+    client.test("400 Bad Request", () => client.assert(response.status === 400, "status: " + response.status));
+%}
+
+
+### 4. 회원가입 - 유효성 실패: 8자 미만 비밀번호 (400 Bad Request)
+POST {{host}}/api/v1/members
+Content-Type: application/json
+
+{
+  "email": "shortpw@example.com",
+  "password": "123",
+  "name": "{{name}}"
+}
+
+> {%
+    client.test("400 Bad Request", () => client.assert(response.status === 400, "status: " + response.status));
+%}
+
+
+### 5. 로그인 - 성공 (200 OK, accessToken 발급 + refreshToken 쿠키)
+# @name login
+POST {{host}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+> {%
+    client.test("200 OK", () => client.assert(response.status === 200, "status: " + response.status));
+    client.test("accessToken 발급", () => client.assert(response.body.data.accessToken !== null));
+    client.test("tokenType 은 Bearer", () => client.assert(response.body.data.tokenType === "Bearer"));
+    client.test("expiresIn 은 3600", () => client.assert(response.body.data.expiresIn === 3600));
+    client.test("refreshToken 쿠키 발급(HttpOnly)", () => {
+        const cookie = response.headers.valueOf("Set-Cookie");
+        client.assert(cookie !== null && cookie.indexOf("refreshToken=") >= 0, "Set-Cookie: " + cookie);
+        client.assert(cookie.indexOf("HttpOnly") >= 0, "HttpOnly 누락");
+    });
+    client.global.set("accessToken", response.body.data.accessToken);
+%}
+
+
+### 6. 로그인 - 비밀번호 오류 (401 Unauthorized)
+POST {{host}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "wrongPassword!"
+}
+
+> {%
+    client.test("401 Unauthorized", () => client.assert(response.status === 401, "status: " + response.status));
+%}
+
+
+### 7. 로그인 - 존재하지 않는 이메일 (401 Unauthorized)
+POST {{host}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "nobody@example.com",
+  "password": "{{password}}"
+}
+
+> {%
+    client.test("401 Unauthorized", () => client.assert(response.status === 401, "status: " + response.status));
+%}
+
+
+### 8. 로그인 - 유효성 실패: 빈 비밀번호 (400 Bad Request)
+POST {{host}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": ""
+}
+
+> {%
+    client.test("400 Bad Request", () => client.assert(response.status === 400, "status: " + response.status));
+%}
+
+
+### 9. 로그아웃 - 성공 (200 OK, refreshToken 쿠키 만료 + accessToken jti 블랙리스트 등록)  [5번 로그인 후]
+### refreshToken 쿠키는 IntelliJ HTTP Client 쿠키 저장소가 자동 첨부하고,
+### accessToken 은 Authorization 헤더로 직접 전달합니다.
+# @name logout
+POST {{host}}/api/v1/auth/logout
+Authorization: Bearer {{accessToken}}
+
+> {%
+    client.test("200 OK", () => client.assert(response.status === 200, "status: " + response.status));
+    client.test("refreshToken 쿠키 만료(Max-Age=0)", () => {
+        const cookie = response.headers.valueOf("Set-Cookie");
+        client.assert(cookie !== null && cookie.indexOf("refreshToken=") >= 0, "Set-Cookie: " + cookie);
+        client.assert(cookie.indexOf("Max-Age=0") >= 0, "쿠키 만료(Max-Age=0) 누락: " + cookie);
+    });
+%}
+
+
+### 10. 로그아웃 - 토큰 없이 호출 (200 OK, 멱등 처리)
+### 쿠키·Authorization 이 없어도 무효화할 대상이 없어 조용히 성공합니다.
+POST {{host}}/api/v1/auth/logout
+
+> {%
+    client.test("200 OK", () => client.assert(response.status === 200, "status: " + response.status));
+%}
+
+
+### -----------------------------------------------------------------
+### 참고:
+### - 5번 로그인 성공 후 발급된 accessToken 은 {{accessToken}} 으로 참조됩니다.
+### - refreshToken 은 HttpOnly 쿠키로 발급되며, 같은 호스트의 이후 요청에 자동 첨부됩니다.
+### - 재발급(POST /api/v1/auth/refresh)도 #22 에서 구현되었으나 여기서는 로그아웃만 다룹니다.
+### - HTTP 인증 필터(#23)가 미구현이라, 로그아웃 후에도 기존 accessToken 으로의
+###   보호 엔드포인트 접근 거부는 아직 적용되지 않습니다.
+### -----------------------------------------------------------------
+# GET {{host}}/api/v1/<protected-endpoint>
+# Authorization: Bearer {{accessToken}}

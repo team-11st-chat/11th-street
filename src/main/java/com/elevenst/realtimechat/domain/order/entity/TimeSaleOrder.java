@@ -1,0 +1,106 @@
+package com.elevenst.realtimechat.domain.order.entity;
+
+import com.elevenst.realtimechat.domain.member.entity.Member;
+import com.elevenst.realtimechat.domain.promotion.service.TimeSalePurchaseSnapshot;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+@Getter
+@Entity
+@Table(indexes = {
+        @Index(name = "idx_time_sale_order_member_sale_status",
+                columnList = "member_id, timeSaleId, status")
+})
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class TimeSaleOrder {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "member_id", nullable = false)
+    private Member member;
+
+    @Column(nullable = false)
+    private Long productId;
+
+    @Column(nullable = false)
+    private Long timeSaleId;
+
+    @Column(nullable = false, unique = true, length = 36)
+    private String requestId;
+
+    @Column(nullable = false, length = 100)
+    private String productNameSnapshot;
+
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal originalPriceSnapshot;
+
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal salePriceSnapshot;
+
+    @Column(nullable = false)
+    private int quantity;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private TimeSaleOrderStatus status;
+
+    @Column(length = 255)
+    private String failureReason;
+
+    @Column(nullable = false)
+    private LocalDateTime orderedAt;
+
+    @Column(insertable = false, updatable = false)
+    private Long completedMemberId;
+
+    public static TimeSaleOrder completed(TimeSalePurchaseSnapshot snapshot, Member member,
+                                          String requestId, int quantity, LocalDateTime now) {
+        return new TimeSaleOrder(
+                member,
+                snapshot.productId(),
+                snapshot.timeSaleId(),
+                requestId,
+                snapshot.productName(),
+                snapshot.originalPrice(),
+                snapshot.salePrice(),
+                quantity,
+                TimeSaleOrderStatus.COMPLETED,
+                null,
+                now
+        );
+    }
+
+    protected TimeSaleOrder(Member member, Long productId, Long timeSaleId, String requestId,
+                            String productNameSnapshot, BigDecimal originalPriceSnapshot, BigDecimal salePriceSnapshot,
+                            int quantity, TimeSaleOrderStatus status, String failureReason, LocalDateTime orderedAt) {
+        this.member = member;
+        this.productId = productId;
+        this.timeSaleId = timeSaleId;
+        this.requestId = requestId;
+        this.productNameSnapshot = productNameSnapshot;
+        this.originalPriceSnapshot = originalPriceSnapshot;
+        this.salePriceSnapshot = salePriceSnapshot;
+        this.quantity = quantity;
+        this.status = status;
+        this.failureReason = failureReason;
+        this.orderedAt = orderedAt;
+    }
+}

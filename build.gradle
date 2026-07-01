@@ -8,6 +8,10 @@ group = 'com.elevenst'
 version = '0.0.1-SNAPSHOT'
 description = 'Realtime chat team project'
 
+ext {
+    testcontainersVersion = '1.21.3'
+}
+
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(21)
@@ -25,27 +29,78 @@ repositories {
 }
 
 dependencies {
-    implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+    // Spring Boot Starters
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-websocket'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-cache'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'org.springframework.boot:spring-boot-starter-flyway'
 
+    // Cache & Redis Client
     implementation 'com.github.ben-manes.caffeine:caffeine'
     implementation 'org.redisson:redisson-spring-boot-starter:4.6.1'
 
+    // JWT
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+
+    // Lombok
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
 
+    // Database Driver & Migration
     runtimeOnly 'com.mysql:mysql-connector-j'
+    runtimeOnly 'org.flywaydb:flyway-mysql'
 
+    // Testing
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
+    testImplementation 'org.springframework.boot:spring-boot-test-autoconfigure'
+    testImplementation 'com.fasterxml.jackson.core:jackson-databind'
+    testImplementation "org.testcontainers:junit-jupiter:${testcontainersVersion}"
+    testImplementation "org.testcontainers:mysql:${testcontainersVersion}"
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testRuntimeOnly 'com.h2database:h2'
 }
 
+// Shared performance-test flag for Gradle test tasks.
+def performanceTestEnv = (System.getenv("PERFORMANCE_TEST") ?: "false").trim()
+
 tasks.named('test') {
-    useJUnitPlatform()
+    description = 'Runs unit tests. Integration tests are executed by the integrationTest task.'
+    group = 'verification'
+
+    useJUnitPlatform {
+        excludeTags 'integration'
+    }
+
+    println ">>> [test] PERFORMANCE_TEST System.getenv: [${performanceTestEnv}]"
+    environment "PERFORMANCE_TEST", performanceTestEnv
+}
+
+tasks.register('integrationTest', Test) {
+    description = 'Runs integration tests with the test profile.'
+    group = 'verification'
+
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+
+    useJUnitPlatform {
+        includeTags 'integration'
+    }
+
+    systemProperty 'spring.profiles.active', 'test'
+    shouldRunAfter tasks.named('test')
+
+    println ">>> [integrationTest] PERFORMANCE_TEST System.getenv: [${performanceTestEnv}]"
+    environment "PERFORMANCE_TEST", performanceTestEnv
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('integrationTest')
 }
