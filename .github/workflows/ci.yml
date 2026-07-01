@@ -127,10 +127,9 @@ jobs:
             export HOME="/root"
           else
             RUN_AS_OWNER="sudo -H -u ${APP_OWNER}"
-            export HOME="$(getent passwd "${APP_OWNER}" | cut -d: -f6)"
           fi
 
-          git config --global --add safe.directory "$(pwd)"
+          ${RUN_AS_OWNER} git config --global --add safe.directory "$(pwd)"
 
           ${RUN_AS_OWNER} git fetch origin "__DEPLOY_REF_NAME__"
           ${RUN_AS_OWNER} git checkout -B "__DEPLOY_REF_NAME__" "origin/__DEPLOY_REF_NAME__"
