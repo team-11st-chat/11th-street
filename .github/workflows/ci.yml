@@ -1,0 +1,188 @@
+name: Single EC2 Docker Compose Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref_name:
+        description: Git ref to deploy on the EC2 instance
+        required: true
+        default: main
+      deploy_app_dir:
+        description: Absolute project path on the EC2 instance
+        required: false
+        default: /home/ssm-user/11th-street
+      healthcheck_url:
+        description: Public health check URL
+        required: false
+        default: https://api.11th-street.click/health
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  verify:
+    name: Test and Build
+    runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      SPRING_PROFILES_ACTIVE: test
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref_name }}
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Prepare Gradle wrapper
+        run: |
+          sed -i 's/\r$//' gradlew
+          chmod +x gradlew
+
+      - name: Compile
+        run: ./gradlew classes testClasses --no-daemon
+
+      - name: Run unit tests
+        run: ./gradlew test --no-daemon
+
+      - name: Run integration tests
+        run: ./gradlew integrationTest --no-daemon
+
+      - name: Build JAR
+        run: ./gradlew bootJar --no-daemon
+
+      - name: Verify Docker image build
+        run: docker build -t 11th-street-app:ci .
+
+  deploy:
+    name: Deploy to Single EC2
+    needs: verify
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      DEPLOY_INSTANCE_ID: ${{ vars.DEPLOY_INSTANCE_ID }}
+      DEPLOY_REF_NAME: ${{ inputs.ref_name }}
+      DEPLOY_APP_DIR: ${{ inputs.deploy_app_dir }}
+      HEALTHCHECK_URL: ${{ inputs.healthcheck_url }}
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Validate deployment inputs
+        run: |
+          test -n "${AWS_REGION}"
+          test -n "${DEPLOY_INSTANCE_ID}"
+          test -n "${DEPLOY_REF_NAME}"
+          test -n "${DEPLOY_APP_DIR}"
+          test -n "${HEALTHCHECK_URL}"
+
+          aws sts get-caller-identity
+          aws ssm describe-instance-information \
+            --filters "Key=InstanceIds,Values=${DEPLOY_INSTANCE_ID}" \
+            --query 'InstanceInformationList[0].InstanceId' \
+            --output text | grep -q "${DEPLOY_INSTANCE_ID}"
+
+      - name: Deploy on EC2
+        id: deploy
+        run: |
+          cat > deploy-commands.sh <<'SCRIPT'
+          set -euo pipefail
+
+          cd "__DEPLOY_APP_DIR__"
+
+          APP_OWNER=$(stat -c '%U' .)
+
+          if [ "${APP_OWNER}" = "root" ]; then
+            RUN_AS_OWNER=""
+          else
+            RUN_AS_OWNER="sudo -H -u ${APP_OWNER}"
+          fi
+
+          git config --global --add safe.directory "$(pwd)"
+
+          ${RUN_AS_OWNER} git fetch origin "__DEPLOY_REF_NAME__"
+          ${RUN_AS_OWNER} git checkout -B "__DEPLOY_REF_NAME__" "origin/__DEPLOY_REF_NAME__"
+          ${RUN_AS_OWNER} git reset --hard "origin/__DEPLOY_REF_NAME__"
+
+          sed -i 's/\r$//' gradlew
+          chmod +x gradlew
+
+          ${RUN_AS_OWNER} ./gradlew bootJar --no-daemon
+          docker compose up -d --build
+          docker compose ps
+          curl --fail --silent --show-error http://localhost:8080/health
+          SCRIPT
+
+          sed -i "s|__DEPLOY_APP_DIR__|${DEPLOY_APP_DIR}|g" deploy-commands.sh
+          sed -i "s|__DEPLOY_REF_NAME__|${DEPLOY_REF_NAME}|g" deploy-commands.sh
+
+          COMMANDS_JSON=$(python3 - <<'PY'
+          import json
+
+          with open("deploy-commands.sh", encoding="utf-8") as script:
+              print(json.dumps({"commands": script.read().splitlines()}))
+          PY
+          )
+
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "${DEPLOY_INSTANCE_ID}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy 11th-street single EC2 with docker compose" \
+            --parameters "${COMMANDS_JSON}" \
+            --query 'Command.CommandId' \
+            --output text)
+
+          echo "command_id=${COMMAND_ID}" >> "$GITHUB_OUTPUT"
+
+          aws ssm wait command-executed \
+            --command-id "${COMMAND_ID}" \
+            --instance-id "${DEPLOY_INSTANCE_ID}"
+
+      - name: Print EC2 deployment output
+        if: always() && steps.deploy.outputs.command_id != ''
+        run: |
+          aws ssm get-command-invocation \
+            --command-id "${{ steps.deploy.outputs.command_id }}" \
+            --instance-id "${DEPLOY_INSTANCE_ID}" \
+            --query '{Status:Status,StandardOutputContent:StandardOutputContent,StandardErrorContent:StandardErrorContent}' \
+            --output json
+
+      - name: Verify public health endpoint
+        run: |
+          for attempt in $(seq 1 12); do
+            if curl --fail --silent --show-error "${HEALTHCHECK_URL}"; then
+              exit 0
+            fi
+
+            echo "Health check attempt ${attempt}/12 failed"
+            sleep 10
+          done
+
+          exit 1
