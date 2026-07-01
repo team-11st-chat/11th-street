@@ -1,6 +1,9 @@
 name: Single EC2 Docker Compose Deploy
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       ref_name:
@@ -45,7 +48,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref_name }}
+          ref: ${{ inputs.ref_name || github.ref_name }}
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -84,9 +87,9 @@ jobs:
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
       DEPLOY_INSTANCE_ID: ${{ vars.DEPLOY_INSTANCE_ID }}
-      DEPLOY_REF_NAME: ${{ inputs.ref_name }}
-      DEPLOY_APP_DIR: ${{ inputs.deploy_app_dir }}
-      HEALTHCHECK_URL: ${{ inputs.healthcheck_url }}
+      DEPLOY_REF_NAME: ${{ inputs.ref_name || github.ref_name }}
+      DEPLOY_APP_DIR: ${{ inputs.deploy_app_dir || vars.DEPLOY_APP_DIR || '/home/ssm-user/11th-street' }}
+      HEALTHCHECK_URL: ${{ inputs.healthcheck_url || vars.HEALTHCHECK_URL || 'https://api.11th-street.click/health' }}
 
     steps:
       - name: Configure AWS credentials
