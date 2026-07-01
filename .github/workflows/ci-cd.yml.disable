@@ -203,7 +203,7 @@ jobs:
   build-and-push:
     name: Build and Push Docker Image
     needs: verify
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
     outputs:
