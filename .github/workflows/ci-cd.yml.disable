@@ -1,0 +1,747 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  verify:
+    name: Test and Build
+    runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      SPRING_PROFILES_ACTIVE: test
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Prepare Gradle wrapper
+        run: |
+          sed -i 's/\r$//' gradlew
+          chmod +x gradlew
+
+      - name: Compile
+        run: ./gradlew classes testClasses --no-daemon
+
+      - name: Run unit tests
+        run: ./gradlew test --no-daemon
+
+      - name: Run integration tests
+        run: ./gradlew integrationTest --no-daemon
+
+      - name: Build JAR
+        run: ./gradlew bootJar --no-daemon
+
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-jar
+          path: build/libs/*.jar
+          if-no-files-found: error
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: false
+          tags: 11th-street-app:ci
+
+  cd-dry-run:
+    name: CD Dry Run
+    needs: verify
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Validate deployment resources
+        env:
+          AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+          LAUNCH_TEMPLATE_ID: ${{ vars.LAUNCH_TEMPLATE_ID }}
+          ASG_NAME: ${{ vars.ASG_NAME }}
+          HEALTHCHECK_URL: ${{ vars.HEALTHCHECK_URL }}
+          PARAMETER_PREFIX: /11th-street/prod
+        run: |
+          test -n "${AWS_ACCOUNT_ID}"
+          test -n "${AWS_REGION}"
+          test -n "${ECR_REPOSITORY}"
+          test -n "${LAUNCH_TEMPLATE_ID}"
+          test -n "${ASG_NAME}"
+          test -n "${HEALTHCHECK_URL}"
+
+          aws sts get-caller-identity
+
+          aws ecr describe-repositories \
+            --repository-names "${ECR_REPOSITORY}" \
+            --region "${AWS_REGION}" \
+            --query 'repositories[0].repositoryUri' \
+            --output text
+
+          aws ec2 describe-launch-template-versions \
+            --launch-template-id "${LAUNCH_TEMPLATE_ID}" \
+            --versions '$Latest' \
+            --region "${AWS_REGION}" \
+            --query 'LaunchTemplateVersions[0].VersionNumber' \
+            --output text
+
+          aws autoscaling describe-auto-scaling-groups \
+            --auto-scaling-group-names "${ASG_NAME}" \
+            --region "${AWS_REGION}" \
+            --query 'AutoScalingGroups[0].AutoScalingGroupName' \
+            --output text
+
+          PARAMETER_NAMES=""
+          NEXT_TOKEN=""
+
+          while true; do
+            TOKEN_ARGS=()
+            if [ -n "${NEXT_TOKEN}" ]; then
+              TOKEN_ARGS=(--next-token "${NEXT_TOKEN}")
+            fi
+
+            RESPONSE=$(aws ssm get-parameters-by-path \
+              --region "${AWS_REGION}" \
+              --path "${PARAMETER_PREFIX}" \
+              --with-decryption \
+              --recursive \
+              --max-results 10 \
+              "${TOKEN_ARGS[@]}" \
+              --output json)
+
+            PAGE_NAMES=$(RESPONSE_JSON="${RESPONSE}" python3 - <<'PY'
+          import json
+          import os
+
+          payload = json.loads(os.environ["RESPONSE_JSON"])
+          for parameter in payload.get("Parameters", []):
+              print(parameter["Name"])
+          PY
+          )
+
+            PARAMETER_NAMES="${PARAMETER_NAMES}
+          ${PAGE_NAMES}"
+
+            NEXT_TOKEN=$(RESPONSE_JSON="${RESPONSE}" python3 - <<'PY'
+          import json
+          import os
+
+          payload = json.loads(os.environ["RESPONSE_JSON"])
+          print(payload.get("NextToken", ""))
+          PY
+          )
+
+            if [ -z "${NEXT_TOKEN}" ]; then
+              break
+            fi
+          done
+
+          for name in \
+            SPRING_PROFILES_ACTIVE \
+            SERVER_PORT \
+            DB_URL \
+            DB_USERNAME \
+            DB_PASSWORD \
+            REDIS_HOST \
+            REDIS_PORT \
+            JWT_SECRET \
+            JWT_ACCESS_TOKEN_VALIDITY_SECONDS \
+            JWT_REFRESH_TOKEN_VALIDITY_SECONDS \
+            MYSQL_ROOT_PASSWORD \
+            ALLOW_EPHEMERAL_STATEFUL_CONTAINERS
+          do
+            echo "${PARAMETER_NAMES}" | grep -q "${PARAMETER_PREFIX}/${name}"
+          done
+
+  build-and-push:
+    name: Build and Push Docker Image
+    needs: verify
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    outputs:
+      image_tag: ${{ steps.image.outputs.image_tag }}
+      image_uri: ${{ steps.image.outputs.image_uri }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download JAR artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app-jar
+          path: build/libs
+
+      - name: Set image metadata
+        id: image
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          IMAGE_URI="${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.ECR_REPOSITORY }}"
+
+          echo "image_tag=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "image_uri=${IMAGE_URI}" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ steps.image.outputs.image_uri }}:${{ steps.image.outputs.image_tag }}
+            ${{ steps.image.outputs.image_uri }}:latest
+
+  deploy:
+    name: Deploy to EC2 Auto Scaling Group
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Create launch template version
+        id: launch-template
+        env:
+          AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+          IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
+          LAUNCH_TEMPLATE_ID: ${{ vars.LAUNCH_TEMPLATE_ID }}
+        run: |
+          cat > /tmp/11th-street-user-data.sh <<'USER_DATA'
+          #!/bin/bash
+          set -euo pipefail
+
+          AWS_REGION="__AWS_REGION__"
+          AWS_ACCOUNT_ID="__AWS_ACCOUNT_ID__"
+          ECR_REPOSITORY="__ECR_REPOSITORY__"
+          IMAGE_TAG="__IMAGE_TAG__"
+
+          APP_DIR="/opt/11th-street"
+          PARAMETER_PREFIX="/11th-street/prod"
+          ENV_FILE="${APP_DIR}/.env.runtime"
+          COMPOSE_ENV_FILE="${APP_DIR}/.env.compose"
+          COMPOSE_FILE="${APP_DIR}/docker-compose.prod.yml"
+          LEGACY_CONTAINER_NAME="11th-street-app"
+          HEALTHCHECK_ATTEMPTS=20
+          HEALTHCHECK_INTERVAL_SECONDS=10
+          DOCKER_COMPOSE_VERSION="v2.29.7"
+
+          ECR_URI="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}"
+          TARGET_IMAGE="${ECR_URI}:${IMAGE_TAG}"
+
+          dnf install -y docker awscli python3 curl
+          systemctl enable --now docker
+
+          mkdir -p "${APP_DIR}"
+          chmod 750 "${APP_DIR}"
+
+          install_compose_plugin() {
+            if docker compose version >/dev/null 2>&1; then
+              return
+            fi
+
+            if dnf install -y docker-compose-plugin && docker compose version >/dev/null 2>&1; then
+              return
+            fi
+
+            local arch
+            case "$(uname -m)" in
+              x86_64)
+                arch="x86_64"
+                ;;
+              aarch64|arm64)
+                arch="aarch64"
+                ;;
+              *)
+                echo "Unsupported architecture for Docker Compose plugin: $(uname -m)" >&2
+                exit 1
+                ;;
+            esac
+
+            mkdir -p /usr/local/lib/docker/cli-plugins
+            curl --fail --location --silent --show-error \
+              "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-linux-${arch}" \
+              --output /usr/local/lib/docker/cli-plugins/docker-compose
+            chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+            docker compose version
+          }
+
+          write_env_file() {
+            local next_token=""
+            : > "${ENV_FILE}"
+
+            while true; do
+              local token_args=()
+              if [ -n "${next_token}" ]; then
+                token_args=(--next-token "${next_token}")
+              fi
+
+              local response
+              response=$(aws ssm get-parameters-by-path \
+                --region "${AWS_REGION}" \
+                --path "${PARAMETER_PREFIX}" \
+                --with-decryption \
+                --recursive \
+                --max-results 10 \
+                "${token_args[@]}" \
+                --output json)
+
+              RESPONSE_JSON="${response}" python3 - <<'PY' >> "${ENV_FILE}"
+          import json
+          import os
+
+          payload = json.loads(os.environ["RESPONSE_JSON"])
+          for parameter in payload.get("Parameters", []):
+              name = parameter["Name"].rsplit("/", 1)[-1]
+              value = parameter.get("Value", "")
+              print(f"{name}={value}")
+          PY
+
+              next_token=$(RESPONSE_JSON="${response}" python3 - <<'PY'
+          import json
+          import os
+
+          payload = json.loads(os.environ["RESPONSE_JSON"])
+          print(payload.get("NextToken", ""))
+          PY
+          )
+
+              if [ -z "${next_token}" ]; then
+                break
+              fi
+            done
+          }
+
+          get_env_value() {
+            local key="$1"
+
+            if [ ! -f "${ENV_FILE}" ]; then
+              return 0
+            fi
+
+            awk -F= -v key="${key}" '$1 == key { print substr($0, length(key) + 2); exit }' "${ENV_FILE}"
+          }
+
+          require_env_value() {
+            local key="$1"
+            local value
+            value=$(get_env_value "${key}")
+
+            if [ -z "${value}" ]; then
+              echo "Missing required SSM parameter: ${PARAMETER_PREFIX}/${key}" >&2
+              exit 1
+            fi
+
+            echo "${value}"
+          }
+
+          get_env_value_or_default() {
+            local key="$1"
+            local default_value="$2"
+            local value
+            value=$(get_env_value "${key}")
+
+            if [ -z "${value}" ]; then
+              echo "${default_value}"
+              return
+            fi
+
+            echo "${value}"
+          }
+
+          get_server_port() {
+            get_env_value_or_default "SERVER_PORT" "8080"
+          }
+
+          get_healthcheck_url() {
+            echo "http://localhost:$(get_server_port)/health"
+          }
+
+          assert_ephemeral_stateful_containers_allowed() {
+            local allowed
+            allowed=$(get_env_value "ALLOW_EPHEMERAL_STATEFUL_CONTAINERS")
+
+            if [ "${allowed}" != "true" ]; then
+              echo "Set ${PARAMETER_PREFIX}/ALLOW_EPHEMERAL_STATEFUL_CONTAINERS=true to acknowledge that MySQL and Redis data live on the instance-local Docker volumes and can be lost during ASG instance refresh." >&2
+              exit 1
+            fi
+          }
+
+          write_compose_env_file() {
+            local server_port
+            local db_name
+            local db_user
+            local db_password
+            local mysql_root_password
+
+            server_port=$(get_server_port)
+            db_name=$(get_env_value_or_default "MYSQL_DATABASE" "realtime_chat")
+            db_user=$(get_env_value_or_default "MYSQL_USER" "$(get_env_value_or_default "DB_USERNAME" "realtime_chat")")
+            db_password=$(get_env_value "MYSQL_PASSWORD")
+            if [ -z "${db_password}" ]; then
+              db_password=$(require_env_value "DB_PASSWORD")
+            fi
+            mysql_root_password=$(require_env_value "MYSQL_ROOT_PASSWORD")
+
+            cat > "${COMPOSE_ENV_FILE}" <<EOF
+          APP_IMAGE=${TARGET_IMAGE}
+          APP_SERVER_PORT=${server_port}
+          APP_DB_NAME=${db_name}
+          APP_DB_USER=${db_user}
+          APP_DB_PASSWORD=${db_password}
+          MYSQL_ROOT_PASSWORD=${mysql_root_password}
+          EOF
+
+            chmod 600 "${COMPOSE_ENV_FILE}"
+          }
+
+          write_compose_file() {
+            cat > "${COMPOSE_FILE}" <<'EOF'
+          name: 11th-street-prod
+
+          services:
+            app:
+              image: ${APP_IMAGE}
+              container_name: 11th-street-app
+              restart: unless-stopped
+              env_file:
+                - .env.runtime
+              environment:
+                DB_URL: jdbc:mysql://mysql:3306/${APP_DB_NAME}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
+                DB_USERNAME: ${APP_DB_USER}
+                DB_PASSWORD: ${APP_DB_PASSWORD}
+                REDIS_HOST: redis
+                REDIS_PORT: 6379
+              ports:
+                - "${APP_SERVER_PORT}:${APP_SERVER_PORT}"
+              depends_on:
+                mysql:
+                  condition: service_healthy
+                redis:
+                  condition: service_healthy
+
+            mysql:
+              image: mysql:8.4
+              restart: unless-stopped
+              command:
+                - --character-set-server=utf8mb4
+                - --collation-server=utf8mb4_unicode_ci
+                - --default-time-zone=+09:00
+              environment:
+                MYSQL_DATABASE: ${APP_DB_NAME}
+                MYSQL_USER: ${APP_DB_USER}
+                MYSQL_PASSWORD: ${APP_DB_PASSWORD}
+                MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+                TZ: Asia/Seoul
+              volumes:
+                - mysql-data:/var/lib/mysql
+              healthcheck:
+                test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$${MYSQL_ROOT_PASSWORD}"]
+                interval: 5s
+                timeout: 5s
+                retries: 20
+
+            redis:
+              image: redis:8-alpine
+              restart: unless-stopped
+              command: ["redis-server", "--appendonly", "yes"]
+              volumes:
+                - redis-data:/data
+              healthcheck:
+                test: ["CMD", "redis-cli", "ping"]
+                interval: 5s
+                timeout: 3s
+                retries: 20
+
+          volumes:
+            mysql-data:
+            redis-data:
+          EOF
+          }
+
+          cleanup_legacy_container() {
+            if docker ps -a --format '{{.Names}}' | grep -qx "${LEGACY_CONTAINER_NAME}"; then
+              docker rm -f "${LEGACY_CONTAINER_NAME}" >/dev/null 2>&1 || true
+            fi
+          }
+
+          run_compose_stack() {
+            docker compose \
+              --env-file "${COMPOSE_ENV_FILE}" \
+              -f "${COMPOSE_FILE}" \
+              up -d
+          }
+
+          wait_for_health() {
+            local healthcheck_url
+            healthcheck_url=$(get_healthcheck_url)
+
+            for attempt in $(seq 1 "${HEALTHCHECK_ATTEMPTS}"); do
+              if curl --fail --silent --show-error "${healthcheck_url}" >/dev/null; then
+                echo "Health check succeeded on attempt ${attempt}/${HEALTHCHECK_ATTEMPTS}."
+                return 0
+              fi
+
+              echo "Health check attempt ${attempt}/${HEALTHCHECK_ATTEMPTS} failed."
+
+              if [ "${attempt}" -lt "${HEALTHCHECK_ATTEMPTS}" ]; then
+                sleep "${HEALTHCHECK_INTERVAL_SECONDS}"
+              fi
+            done
+
+            return 1
+          }
+
+          write_env_file
+          chmod 600 "${ENV_FILE}"
+          install_compose_plugin
+          assert_ephemeral_stateful_containers_allowed
+          write_compose_env_file
+          write_compose_file
+
+          aws ecr get-login-password --region "${AWS_REGION}" | \
+            docker login --username AWS --password-stdin \
+            "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+
+          docker pull "${TARGET_IMAGE}"
+          cleanup_legacy_container
+          run_compose_stack
+
+          if wait_for_health; then
+            echo "Deployment health check completed successfully."
+            exit 0
+          fi
+
+          echo "Deployment health check failed. Launch Template rollback will be handled by the deployment workflow."
+          exit 1
+          USER_DATA
+
+          PREVIOUS_VERSION=$(aws ec2 describe-launch-template-versions \
+            --launch-template-id "${LAUNCH_TEMPLATE_ID}" \
+            --versions '$Default' \
+            --region "${AWS_REGION}" \
+            --query 'LaunchTemplateVersions[0].VersionNumber' \
+            --output text)
+
+          USER_DATA=$(sed \
+            -e "s|__AWS_ACCOUNT_ID__|${AWS_ACCOUNT_ID}|g" \
+            -e "s|__AWS_REGION__|${AWS_REGION}|g" \
+            -e "s|__ECR_REPOSITORY__|${ECR_REPOSITORY}|g" \
+            -e "s|__IMAGE_TAG__|${IMAGE_TAG}|g" \
+            /tmp/11th-street-user-data.sh | base64 -w 0)
+
+          VERSION=$(aws ec2 create-launch-template-version \
+            --launch-template-id "${LAUNCH_TEMPLATE_ID}" \
+            --source-version '$Default' \
+            --launch-template-data "{\"UserData\":\"${USER_DATA}\"}" \
+            --query 'LaunchTemplateVersion.VersionNumber' \
+            --output text)
+
+          aws ec2 modify-launch-template \
+            --launch-template-id "${LAUNCH_TEMPLATE_ID}" \
+            --default-version "${VERSION}"
+
+          echo "previous_version=${PREVIOUS_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Start instance refresh
+        id: refresh
+        env:
+          ASG_NAME: ${{ vars.ASG_NAME }}
+        run: |
+          REFRESH_ID=$(aws autoscaling start-instance-refresh \
+            --auto-scaling-group-name "${ASG_NAME}" \
+            --preferences '{"MinHealthyPercentage":100,"InstanceWarmup":120}' \
+            --query 'InstanceRefreshId' \
+            --output text)
+
+          echo "refresh_id=${REFRESH_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for instance refresh
+        env:
+          ASG_NAME: ${{ vars.ASG_NAME }}
+          REFRESH_ID: ${{ steps.refresh.outputs.refresh_id }}
+        run: |
+          for i in $(seq 1 30); do
+            STATUS=$(aws autoscaling describe-instance-refreshes \
+              --auto-scaling-group-name "${ASG_NAME}" \
+              --instance-refresh-ids "${REFRESH_ID}" \
+              --query 'InstanceRefreshes[0].Status' \
+              --output text)
+
+            echo "Attempt ${i}/30 - status: ${STATUS}"
+
+            if [ "${STATUS}" = "Successful" ]; then
+              exit 0
+            fi
+
+            if [ "${STATUS}" = "Failed" ] || [ "${STATUS}" = "Cancelled" ]; then
+              exit 1
+            fi
+
+            sleep 30
+          done
+
+          exit 1
+
+      - name: Verify application health
+        env:
+          HEALTHCHECK_URL: ${{ vars.HEALTHCHECK_URL }}
+        run: |
+          test -n "${HEALTHCHECK_URL}"
+
+          for i in $(seq 1 3); do
+            if curl --fail --silent --show-error "${HEALTHCHECK_URL}"; then
+              exit 0
+            fi
+
+            echo "Health check attempt ${i}/3 failed"
+            sleep 10
+          done
+
+          exit 1
+
+      - name: Roll back launch template on deployment failure
+        if: ${{ (failure() || cancelled()) && steps.launch-template.outputs.previous_version != '' }}
+        env:
+          ASG_NAME: ${{ vars.ASG_NAME }}
+          LAUNCH_TEMPLATE_ID: ${{ vars.LAUNCH_TEMPLATE_ID }}
+          PREVIOUS_VERSION: ${{ steps.launch-template.outputs.previous_version }}
+          CURRENT_REFRESH_ID: ${{ steps.refresh.outputs.refresh_id }}
+        run: |
+          aws ec2 modify-launch-template \
+            --launch-template-id "${LAUNCH_TEMPLATE_ID}" \
+            --default-version "${PREVIOUS_VERSION}"
+
+          aws autoscaling cancel-instance-refresh \
+            --auto-scaling-group-name "${ASG_NAME}" || true
+
+          if [ -n "${CURRENT_REFRESH_ID}" ]; then
+            for i in $(seq 1 20); do
+              STATUS=$(aws autoscaling describe-instance-refreshes \
+                --auto-scaling-group-name "${ASG_NAME}" \
+                --instance-refresh-ids "${CURRENT_REFRESH_ID}" \
+                --query 'InstanceRefreshes[0].Status' \
+                --output text)
+
+              echo "Cancel wait ${i}/20 - status: ${STATUS}"
+
+              if [ "${STATUS}" = "Cancelled" ] || [ "${STATUS}" = "Failed" ] || [ "${STATUS}" = "Successful" ]; then
+                break
+              fi
+
+              sleep 15
+            done
+          fi
+
+          ROLLBACK_REFRESH_ID=""
+
+          for i in $(seq 1 5); do
+            if ROLLBACK_REFRESH_ID=$(aws autoscaling start-instance-refresh \
+              --auto-scaling-group-name "${ASG_NAME}" \
+              --desired-configuration "{\"LaunchTemplate\":{\"LaunchTemplateId\":\"${LAUNCH_TEMPLATE_ID}\",\"Version\":\"${PREVIOUS_VERSION}\"}}" \
+              --preferences '{"MinHealthyPercentage":100,"InstanceWarmup":120}' \
+              --query 'InstanceRefreshId' \
+              --output text); then
+              break
+            fi
+
+            echo "Rollback instance refresh start attempt ${i}/5 failed. Retrying..."
+            sleep 15
+          done
+
+          test -n "${ROLLBACK_REFRESH_ID}"
+
+          for i in $(seq 1 30); do
+            STATUS=$(aws autoscaling describe-instance-refreshes \
+              --auto-scaling-group-name "${ASG_NAME}" \
+              --instance-refresh-ids "${ROLLBACK_REFRESH_ID}" \
+              --query 'InstanceRefreshes[0].Status' \
+              --output text)
+
+            echo "Rollback attempt ${i}/30 - status: ${STATUS}"
+
+            if [ "${STATUS}" = "Successful" ]; then
+              exit 0
+            fi
+
+            if [ "${STATUS}" = "Failed" ] || [ "${STATUS}" = "Cancelled" ]; then
+              exit 1
+            fi
+
+            sleep 30
+          done
+
+          exit 1
