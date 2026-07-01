@@ -124,11 +124,12 @@ jobs:
 
           if [ "${APP_OWNER}" = "root" ]; then
             RUN_AS_OWNER=""
+            export HOME="/root"
           else
             RUN_AS_OWNER="sudo -H -u ${APP_OWNER}"
           fi
 
-          git config --global --add safe.directory "$(pwd)"
+          ${RUN_AS_OWNER} git config --global --add safe.directory "$(pwd)"
 
           ${RUN_AS_OWNER} git fetch origin "__DEPLOY_REF_NAME__"
           ${RUN_AS_OWNER} git checkout -B "__DEPLOY_REF_NAME__" "origin/__DEPLOY_REF_NAME__"
