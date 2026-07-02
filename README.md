@@ -121,7 +121,7 @@ npm run dev
 4. 브라우저에서 앱을 엽니다.
 
 ```text
-http://localhost:5173
+http://localhost:5350
 ```
 
 프론트엔드에서 확인할 수 있는 주요 흐름은 다음과 같습니다.
