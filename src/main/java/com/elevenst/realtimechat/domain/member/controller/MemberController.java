@@ -3,13 +3,10 @@ package com.elevenst.realtimechat.domain.member.controller;
 import com.elevenst.realtimechat.global.response.ApiResponse;
 import com.elevenst.realtimechat.domain.member.dto.MemberCreateRequest;
 import com.elevenst.realtimechat.domain.member.dto.MemberResponse;
-import com.elevenst.realtimechat.domain.member.dto.MemberRoleUpdateRequest;
 import com.elevenst.realtimechat.domain.member.service.MemberService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -27,12 +24,5 @@ public class MemberController {
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<MemberResponse> signup(@Valid @RequestBody MemberCreateRequest request) {
         return ApiResponse.success(memberService.signup(request));
-    }
-
-    @PatchMapping("/{memberId}/role")
-    public ApiResponse<MemberResponse> changeRole(
-            @PathVariable Long memberId,
-            @Valid @RequestBody MemberRoleUpdateRequest request) {
-        return ApiResponse.success(memberService.changeRole(memberId, request));
     }
 }

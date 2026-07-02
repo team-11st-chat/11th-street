@@ -64,8 +64,6 @@ public class SecurityConfig {
                                 "/api/v1/timesales/*",
                                 "/api/v1/coupons",
                                 "/api/v1/coupons/*").permitAll()
-                        // 회원 역할 변경은 인증 없이 누구나 호출할 수 있도록 허용한다.
-                        .requestMatchers(HttpMethod.PATCH, "/api/v1/members/*/role").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/products").hasRole("SELLER")
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/products/*").hasRole("SELLER")
                         .requestMatchers("/ws").permitAll()

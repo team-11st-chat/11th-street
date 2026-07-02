@@ -3,7 +3,6 @@ package com.elevenst.realtimechat.domain.member.service;
 import com.elevenst.realtimechat.global.exception.BusinessException;
 import com.elevenst.realtimechat.domain.member.dto.MemberCreateRequest;
 import com.elevenst.realtimechat.domain.member.dto.MemberResponse;
-import com.elevenst.realtimechat.domain.member.dto.MemberRoleUpdateRequest;
 import com.elevenst.realtimechat.domain.member.entity.Member;
 import com.elevenst.realtimechat.domain.member.exception.MemberErrorCode;
 import com.elevenst.realtimechat.domain.member.repository.MemberRepository;
@@ -13,14 +12,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
 public class MemberService {
 
     private final MemberRepository memberRepository;
-    private final MemberQueryService memberQueryService;
     private final PasswordEncoder passwordEncoder;
 
     public MemberResponse signup(MemberCreateRequest request) {
@@ -32,12 +29,5 @@ public class MemberService {
         } catch (DataIntegrityViolationException e) {
             throw new BusinessException(MemberErrorCode.EMAIL_DUPLICATED);
         }
-    }
-
-    @Transactional
-    public MemberResponse changeRole(Long memberId, MemberRoleUpdateRequest request) {
-        Member member = memberQueryService.getMemberOrThrow(memberId);
-        member.changeRole(request.role());
-        return MemberResponse.from(member);
     }
 }

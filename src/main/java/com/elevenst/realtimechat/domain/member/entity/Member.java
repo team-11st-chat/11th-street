@@ -52,8 +52,4 @@ public class Member extends BaseEntity {
     public boolean isActive() {
         return this.status == MemberStatus.ACTIVE;
     }
-
-    public void changeRole(MemberRole role) {
-        this.role = role;
-    }
 }
