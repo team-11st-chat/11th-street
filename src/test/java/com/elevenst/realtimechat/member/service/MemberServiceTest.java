@@ -14,6 +14,7 @@ import com.elevenst.realtimechat.domain.member.entity.MemberRole;
 import com.elevenst.realtimechat.domain.member.entity.MemberStatus;
 import com.elevenst.realtimechat.domain.member.exception.MemberErrorCode;
 import com.elevenst.realtimechat.domain.member.repository.MemberRepository;
+import com.elevenst.realtimechat.domain.member.service.MemberQueryService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -25,14 +26,16 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 class MemberServiceTest {
 
     private MemberRepository memberRepository;
+    private MemberQueryService memberQueryService;
     private PasswordEncoder passwordEncoder;
     private MemberService memberService;
 
     @BeforeEach
     void setUp() {
         memberRepository = Mockito.mock(MemberRepository.class);
+        memberQueryService = Mockito.mock(MemberQueryService.class);
         passwordEncoder = new BCryptPasswordEncoder();
-        memberService = new MemberService(memberRepository, passwordEncoder);
+        memberService = new MemberService(memberRepository, memberQueryService, passwordEncoder);
     }
 
     @Test
